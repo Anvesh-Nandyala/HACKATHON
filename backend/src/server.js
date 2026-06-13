@@ -1,0 +1,61 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+
+const authRoutes = require('./routes/auth');
+const productRoutes = require('./routes/products');
+const marketplaceRoutes = require('./routes/marketplace');
+const transactionRoutes = require('./routes/transactions');
+const creditsRoutes = require('./routes/credits');
+
+const { errorHandler } = require('./middleware/errorHandler');
+const { authMiddleware } = require('./middleware/auth');
+const { rateLimiter } = require('./middleware/rateLimiter');
+const { ensureTable } = require('./db/dynamodb');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Global middleware
+app.use(helmet());
+app.use(cors());
+
+
+app.use(express.json({ limit: '10mb' }));
+app.use(rateLimiter);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', service: 'circular-commerce-platform' });
+});
+
+// Public routes (no auth required)
+app.use('/api/auth', authRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/seed', require('./routes/seed'));
+
+// Protected routes
+app.use('/api/products', authMiddleware, productRoutes);
+app.use('/api/transactions', authMiddleware, transactionRoutes);
+app.use('/api/credits', authMiddleware, creditsRoutes);
+
+// Error handling
+app.use(errorHandler);
+
+// Start server after ensuring DynamoDB table exists
+async function start() {
+  try {
+    await ensureTable();
+    app.listen(PORT, () => {
+      console.log(`Circular Commerce Platform running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err.message);
+    process.exit(1);
+  }
+}
+
+start();
+
+module.exports = app;
