@@ -50,18 +50,12 @@ app.use('/api/credits', authMiddleware, creditsRoutes);
 app.use(errorHandler);
 
 // Start server after ensuring DynamoDB table exists
-async function start() {
-  try {
-    await ensureTable();
-    app.listen(PORT, () => {
-      console.log(`Circular Commerce Platform running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err.message);
-    process.exit(1);
-  }
-}
+app.listen(PORT, () => {
+  console.log(`Circular Commerce Platform running on port ${PORT}`);
 
-start();
+  ensureTable()
+    .then(() => console.log('DynamoDB table checked'))
+    .catch((err) => console.error('DynamoDB table check failed:', err.message));
+});
 
 module.exports = app;
