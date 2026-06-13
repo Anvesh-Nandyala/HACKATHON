@@ -28,7 +28,7 @@ const CATEGORY_CARDS = [
 function DemoProductCard({ product, quantity, onQuantityChange }) {
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
   const openProduct = () => {
-    window.open(`/product/demo-${product.id}`, '_blank', 'noopener,noreferrer');
+    window.open(`/#/product/demo-${product.id}`, '_blank', 'noopener,noreferrer');
   };
   const changeQuantity = (event, delta) => {
     event.stopPropagation();

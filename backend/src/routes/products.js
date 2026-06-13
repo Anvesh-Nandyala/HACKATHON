@@ -19,10 +19,10 @@ router.post('/submit', async (req, res, next) => {
     const userId = req.user.userId;
 
     // Check daily submission limit (max 10 per day)
-    const withinLimit = await store.checkDailyLimit(userId);
-    if (!withinLimit) {
-      return res.status(429).json({ error: 'Daily submission limit reached (10 per day)' });
-    }
+    // const withinLimit = await store.checkDailyLimit(userId);
+    // if (!withinLimit) {
+    //   return res.status(429).json({ error: 'Daily submission limit reached (10 per day)' });
+    // }
 
     const productId = uuidv4();
     const geohash = ngeohash.encode(data.location.latitude, data.location.longitude, 6);
@@ -96,9 +96,13 @@ router.post('/submit', async (req, res, next) => {
       grade: verification.grade,
       category: data.category,
       estimatedPrice: priceEstimate.recommendedPrice,
+      recommendedPrice: priceEstimate.recommendedPrice,
+      priceRange: priceEstimate.priceRange,
       location: data.location,
-      weight: 1,
-      dimensions: { length: 30, width: 20, height: 15 },
+      weight: data.weight || 1,
+      dimensions: data.dimensions || { length: 30, width: 20, height: 15 },
+      working: verification.working,
+      authenticityScore: verification.authenticityScore,
     });
 
     product.routingDecision = routingDecision;

@@ -79,7 +79,7 @@ export default function Nearby({ user }) {
   };
 
   const openProduct = (product) => {
-    window.open(`/product/${product.productId}`, '_blank', 'noopener,noreferrer');
+    window.open(`/#/product/${product.productId}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

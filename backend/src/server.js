@@ -19,7 +19,11 @@ const PORT = process.env.PORT || 8080;
 
 // Global middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 app.use(express.json({ limit: '10mb' }));
@@ -42,6 +46,7 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/seed', require('./routes/seed'));
 
 // Protected routes
+app.use('/api/uploads', authMiddleware, require('./routes/uploads'));
 app.use('/api/products', authMiddleware, productRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/credits', authMiddleware, creditsRoutes);

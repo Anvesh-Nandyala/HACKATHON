@@ -112,7 +112,7 @@ export default function Marketplace({ user }) {
   };
 
   const openProduct = (product) => {
-    window.open(`/product/${product.productId}`, '_blank', 'noopener,noreferrer');
+    window.open(`/#/product/${product.productId}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

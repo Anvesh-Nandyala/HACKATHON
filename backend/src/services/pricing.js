@@ -1,137 +1,173 @@
+const {
+  BedrockRuntimeClient,
+  InvokeModelCommand
+} = require('@aws-sdk/client-bedrock-runtime');
+
 const { store } = require('../db/store');
 
-/**
- * AI Price Estimation Service.
- * Determines fair resale value based on condition, market demand, and depreciation.
- * In production, this uses Bedrock for market analysis.
- */
+const AWS_REGION = process.env.AWS_REGION || 'ap-south-2';
+const BEDROCK_MODEL_ID =
+  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
 
-// Category-specific depreciation curves (annual depreciation rate)
-const DEPRECIATION_RATES = {
-  electronics: 0.25,
-  clothing: 0.40,
-  furniture: 0.15,
-  books: 0.30,
-  toys: 0.35,
-  appliances: 0.20,
-  sports: 0.25,
-  tools: 0.15,
-  jewelry: 0.10,
-  automotive: 0.20,
-  'home-garden': 0.20,
-  'health-beauty': 0.50,
-  office: 0.25,
-  'pet-supplies': 0.35,
-  other: 0.30,
-};
+const bedrock = new BedrockRuntimeClient({ region: AWS_REGION });
 
-/**
- * Calculate depreciation based on category curve.
- */
-function getCategoryDepreciation(category, ageMonths) {
-  const annualRate = DEPRECIATION_RATES[category] || 0.30;
-  const years = ageMonths / 12;
-  // Exponential decay model
-  return Math.exp(-annualRate * years);
+function extractJson(text) {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON found in Bedrock response');
+  return JSON.parse(match[0]);
 }
 
-/**
- * Calculate condition multiplier based on grade and score.
- */
-function calculateConditionMultiplier(conditionScore, grade, working) {
-  let multiplier = conditionScore / 100;
+function normalizePriceResult(result, originalPrice) {
+  const recommendedPrice = Math.max(
+    1,
+    Math.round(Number(result.recommendedPrice || originalPrice * 0.5))
+  );
 
-  // Working bonus
-  if (working) {
-    multiplier *= 1.1;
-  } else {
-    multiplier *= 0.5;
+  const min = Math.max(
+    1,
+    Math.round(Number(result.priceRange?.min || recommendedPrice * 0.85))
+  );
+
+  const max = Math.max(
+    min,
+    Math.round(Number(result.priceRange?.max || recommendedPrice * 1.15))
+  );
+
+  return {
+    recommendedPrice,
+    priceRange: { min, max },
+    confidence: Math.max(0, Math.min(1, Number(result.confidence || 0.7))),
+    factors: Array.isArray(result.factors) ? result.factors : [],
+    estimatedDaysToSell: Math.max(
+      1,
+      Math.round(Number(result.estimatedDaysToSell || 7))
+    )
+  };
+}
+
+async function estimatePriceWithBedrock(request) {
+  const prompt = `
+You are an AI pricing expert for a circular commerce resale marketplace.
+
+Estimate a fair resale price for this second-hand product.
+
+Product data:
+${JSON.stringify(request, null, 2)}
+
+Consider:
+1. Original price
+2. Product category
+3. Age in months
+4. Condition score
+5. Grade
+6. Working status
+7. Local resale demand
+8. Depreciation
+9. Expected buyer trust
+10. Time to sell
+
+Return ONLY valid JSON in this exact format:
+{
+  "recommendedPrice": number,
+  "priceRange": {
+    "min": number,
+    "max": number
+  },
+  "confidence": 0-1,
+  "factors": [
+    {
+      "name": "factor name",
+      "impact": number,
+      "description": "short explanation"
+    }
+  ],
+  "estimatedDaysToSell": number
+}
+`;
+
+  const body = {
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: 700,
+    temperature: 0.2,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
+      }
+    ]
+  };
+
+  const response = await bedrock.send(
+    new InvokeModelCommand({
+      modelId: BEDROCK_MODEL_ID,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify(body)
+    })
+  );
+
+  const decoded = JSON.parse(Buffer.from(response.body).toString('utf8'));
+  const text = decoded.content?.[0]?.text || '{}';
+
+  return normalizePriceResult(
+    extractJson(text),
+    Number(request.originalPrice || 1)
+  );
+}
+
+async function estimatePrice(request) {
+  const {
+    productId,
+    category,
+    originalPrice,
+    ageMonths,
+    conditionScore,
+    grade,
+    working,
+    location
+  } = request;
+
+  if (!productId) {
+    throw new Error('productId is required');
   }
 
-  // Grade adjustment
-  const gradeBonus = { A: 1.05, B: 1.0, C: 0.85, D: 0.6 };
-  multiplier *= gradeBonus[grade] || 1.0;
+  if (!originalPrice || Number(originalPrice) <= 0) {
+    throw new Error('originalPrice must be greater than 0');
+  }
 
-  return Math.min(multiplier, 1.0);
-}
-
-/**
- * Simulate local demand factor.
- */
-function getLocalDemandMultiplier(location, category) {
-  // In production: query local marketplace data and trending categories
-  const baseDemand = 0.8 + Math.random() * 0.4;
-  return baseDemand;
-}
-
-/**
- * Estimate days to sell based on demand and price.
- */
-function estimateTimeToSell(demandMultiplier, price, category) {
-  const baseTime = 7; // days
-  const priceEffect = Math.log10(price + 1) * 2;
-  const demandEffect = 1 / demandMultiplier;
-  return Math.max(1, Math.round(baseTime * priceEffect * demandEffect));
-}
-
-/**
- * Main price estimation function.
- */
-async function estimatePrice(request) {
-  const { productId, category, originalPrice, ageMonths, conditionScore, grade, working, location } = request;
-
-  // Step 1: Base depreciation
-  const depreciationFactor = getCategoryDepreciation(category, ageMonths);
-  const baseValue = originalPrice * depreciationFactor;
-
-  // Step 2: Condition adjustment
-  const conditionMultiplier = calculateConditionMultiplier(conditionScore, grade, working);
-  const conditionAdjustedValue = baseValue * conditionMultiplier;
-
-  // Step 3: Market/demand adjustment
-  const demandMultiplier = getLocalDemandMultiplier(location, category);
-  const marketAdjustedValue = conditionAdjustedValue * demandMultiplier;
-
-  // Step 4: Price range with confidence
-  const recommendedPrice = Math.max(1, Math.round(marketAdjustedValue));
-  const confidence = Math.min(0.95, 0.6 + conditionMultiplier * 0.3);
-  const margin = recommendedPrice * (1 - confidence) * 0.5;
-
-  const priceRange = {
-    min: Math.max(1, Math.round(recommendedPrice - margin)),
-    max: Math.round(recommendedPrice + margin),
-  };
-
-  // Step 5: Time estimate
-  const estimatedDaysToSell = estimateTimeToSell(demandMultiplier, recommendedPrice, category);
-
-  const factors = [
-    { name: 'depreciation', impact: depreciationFactor, description: `${Math.round(depreciationFactor * 100)}% value retained after ${ageMonths} months` },
-    { name: 'condition', impact: conditionMultiplier, description: `Grade ${grade}, score ${conditionScore}/100` },
-    { name: 'demand', impact: demandMultiplier, description: `Local market demand factor` },
-  ];
-
-  const result = {
+  const result = await estimatePriceWithBedrock({
     productId,
-    recommendedPrice,
-    priceRange,
-    confidence: Math.round(confidence * 100) / 100,
-    factors,
-    estimatedDaysToSell,
-  };
-
-  // Emit event
-  store.emitEvent({
-    type: 'PriceEstimated',
-    detail: { productId, recommendedPrice, confidence },
+    category,
+    originalPrice,
+    ageMonths,
+    conditionScore,
+    grade,
+    working,
+    location
   });
 
-  return result;
+  const finalResult = {
+    productId,
+    ...result
+  };
+
+  store.emitEvent({
+    type: 'PriceEstimated',
+    detail: {
+      productId,
+      recommendedPrice: finalResult.recommendedPrice,
+      confidence: finalResult.confidence
+    },
+  });
+
+  return finalResult;
 }
 
 module.exports = {
-  estimatePrice,
-  getCategoryDepreciation,
-  calculateConditionMultiplier,
-  DEPRECIATION_RATES,
+  estimatePrice
 };

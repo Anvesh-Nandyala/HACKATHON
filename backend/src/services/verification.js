@@ -1,149 +1,240 @@
+const {
+  S3Client,
+  GetObjectCommand
+} = require('@aws-sdk/client-s3');
+
+const {
+  BedrockRuntimeClient,
+  InvokeModelCommand
+} = require('@aws-sdk/client-bedrock-runtime');
+
 const { store } = require('../db/store');
 
-/**
- * AI Product Verification Service.
- * Analyzes uploaded media to assess condition, detect damage, and authenticate products.
- * In production, this calls Amazon Rekognition + Bedrock.
- */
+const AWS_REGION = process.env.AWS_REGION || 'ap-south-2';
+const S3_BUCKET = process.env.S3_BUCKET;
+const BEDROCK_MODEL_ID =
+  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-sonnet-20240620-v1:0';
 
-const GRADE_THRESHOLDS = { A: 90, B: 70, C: 40, D: 0 };
+const s3 = new S3Client({ region: AWS_REGION });
+const bedrock = new BedrockRuntimeClient({ region: AWS_REGION });
 
-// Condition score weights
-const WEIGHTS = {
-  surfaceDamage: 0.25,
-  structuralIntegrity: 0.30,
-  functionalStatus: 0.30,
-  completeness: 0.10,
-  aiAdjustment: 0.05,
-};
-
-function scoreToGrade(score) {
-  if (score >= 90) return 'A';
-  if (score >= 70) return 'B';
-  if (score >= 40) return 'C';
-  return 'D';
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
 }
 
-/**
- * Simulate Rekognition image analysis.
- */
-function analyzeImages(imageKeys) {
-  return imageKeys.map((key, i) => ({
+function getMediaType(key) {
+  const ext = key.toLowerCase().split('.').pop();
+
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+
+  throw new Error(`Unsupported image type: ${ext}`);
+}
+
+async function getImageFromS3(key) {
+  const res = await s3.send(
+    new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key
+    })
+  );
+
+  const buffer = await streamToBuffer(res.Body);
+
+  return {
     key,
-    labels: ['product', 'item', 'object'],
-    damageDetected: Math.random() > 0.7,
-    surfaceScore: 60 + Math.random() * 40,
-    textDetected: [],
-    confidence: 0.85 + Math.random() * 0.15,
-  }));
-}
-
-/**
- * Simulate Rekognition video analysis.
- */
-function analyzeVideo(videoKey) {
-  return {
-    key: videoKey,
-    workingScore: 0.5 + Math.random() * 0.5,
-    functionalIndicators: ['powers_on', 'responsive'],
-    durationSeconds: 15 + Math.random() * 45,
-    confidence: 0.8 + Math.random() * 0.2,
+    mediaType: res.ContentType || getMediaType(key),
+    base64: buffer.toString('base64')
   };
 }
 
-/**
- * Simulate Bedrock AI assessment synthesis.
- */
-function synthesizeWithAI(imageAnalyses, videoAnalysis, declaredProduct) {
-  const hasDamage = imageAnalyses.some(a => a.damageDetected);
+function extractJson(text) {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON found in Bedrock response');
+  return JSON.parse(match[0]);
+}
+
+function normalizeAssessment(a) {
+  const score = Math.max(0, Math.min(100, Number(a.conditionScore || 0)));
+
+  const grade = ['A', 'B', 'C', 'D'].includes(a.grade)
+    ? a.grade
+    : score >= 90
+      ? 'A'
+      : score >= 70
+        ? 'B'
+        : score >= 40
+          ? 'C'
+          : 'D';
+
+  const path = ['Resell', 'Refurbish', 'Donate', 'Recycle'].includes(
+    a.recommendedRecoveryPath
+  )
+    ? a.recommendedRecoveryPath
+    : 'Resell';
 
   return {
-    adjustmentFactor: hasDamage ? -5 + Math.random() * 10 : Math.random() * 10,
-    authenticityScore: 0.7 + Math.random() * 0.3,
-    reasoning: `Product appears ${hasDamage ? 'to have minor wear' : 'to be in good condition'}. Category match: ${declaredProduct.category}.`,
+    conditionScore: score,
+    grade,
+    working: Boolean(a.working),
+    confidence: Math.max(0, Math.min(1, Number(a.confidence || 0.7))),
+    damageDetected: Array.isArray(a.damageDetected) ? a.damageDetected : [],
+    authenticityScore: Math.max(0, Math.min(1, Number(a.authenticityScore || 0.6))),
+    reasoning: a.reasoning || 'Bedrock Vision verification completed.',
+    recommendedRecoveryPath: path,
+    recommendedPriceAdjustmentPercent: Number(
+      a.recommendedPriceAdjustmentPercent || 0
+    )
   };
 }
 
-/**
- * Calculate condition score using weighted formula.
- */
-function calculateConditionScore(indicators) {
-  const raw =
-    indicators.surfaceDamage * WEIGHTS.surfaceDamage +
-    indicators.structuralIntegrity * WEIGHTS.structuralIntegrity +
-    indicators.functionalStatus * WEIGHTS.functionalStatus +
-    indicators.completeness * WEIGHTS.completeness +
-    indicators.aiAdjustment * WEIGHTS.aiAdjustment;
+async function assessWithBedrockVision({
+  images,
+  declaredProduct,
+  videoProvided
+}) {
+  const content = [
+    {
+      type: 'text',
+      text: `
+You are an AI product verification expert for a circular commerce marketplace.
 
-  return Math.max(0, Math.min(100, Math.round(raw)));
+Analyze the uploaded product images directly.
+
+Tasks:
+1. Identify product type.
+2. Check visible damage, scratches, dents, cracks, stains, missing parts.
+3. Estimate whether product is working based on visible clues and video proof availability.
+4. Estimate authenticity confidence.
+5. Assign condition score and grade.
+6. Recommend recovery path.
+7. Recommend price adjustment percentage.
+
+Declared product:
+${JSON.stringify(declaredProduct, null, 2)}
+
+Video proof provided:
+${videoProvided ? 'Yes' : 'No'}
+
+Return ONLY valid JSON in this exact format:
+{
+  "conditionScore": 0-100,
+  "grade": "A | B | C | D",
+  "working": true,
+  "confidence": 0-1,
+  "damageDetected": [
+    {
+      "location": "image-1",
+      "severity": "minor | moderate | severe",
+      "description": "short damage description"
+    }
+  ],
+  "authenticityScore": 0-1,
+  "reasoning": "short explanation",
+  "recommendedRecoveryPath": "Resell | Refurbish | Donate | Recycle",
+  "recommendedPriceAdjustmentPercent": -100 to 50
+}
+`
+    }
+  ];
+
+  for (const img of images) {
+    content.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: img.mediaType,
+        data: img.base64
+      }
+    });
+  }
+
+  const body = {
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: 1000,
+    temperature: 0.1,
+    messages: [
+      {
+        role: 'user',
+        content
+      }
+    ]
+  };
+
+  const response = await bedrock.send(
+    new InvokeModelCommand({
+      modelId: BEDROCK_MODEL_ID,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify(body)
+    })
+  );
+
+  const decoded = JSON.parse(Buffer.from(response.body).toString('utf8'));
+  const text = decoded.content?.[0]?.text || '{}';
+
+  return normalizeAssessment(extractJson(text));
 }
 
-/**
- * Main verification function.
- */
 async function verifyProduct(request) {
-  const { productId, userId, imageKeys, videoKey, declaredCategory, declaredBrand, declaredModel } = request;
+  const {
+    productId,
+    imageKeys,
+    videoKey,
+    declaredCategory,
+    declaredBrand,
+    declaredModel
+  } = request;
 
-  // Step 1: Parallel image and video analysis
-  const imageAnalyses = analyzeImages(imageKeys);
-  const videoAnalysis = analyzeVideo(videoKey);
+  if (!S3_BUCKET) {
+    throw new Error('S3_BUCKET environment variable is missing');
+  }
 
-  // Step 2: AI synthesis
-  const aiAssessment = synthesizeWithAI(imageAnalyses, videoAnalysis, {
-    category: declaredCategory,
-    brand: declaredBrand,
-    model: declaredModel,
+  const safeImageKeys = Array.isArray(imageKeys) ? imageKeys : [];
+
+  if (safeImageKeys.length === 0) {
+    throw new Error('At least one product image is required');
+  }
+
+  const images = [];
+
+  for (const key of safeImageKeys.slice(0, 5)) {
+    images.push(await getImageFromS3(key));
+  }
+
+  const aiAssessment = await assessWithBedrockVision({
+    images,
+    videoProvided: Boolean(videoKey),
+    declaredProduct: {
+      category: declaredCategory,
+      brand: declaredBrand,
+      model: declaredModel
+    }
   });
-
-  // Step 3: Calculate condition score
-  const avgSurface = imageAnalyses.reduce((s, a) => s + a.surfaceScore, 0) / imageAnalyses.length;
-  const structuralScore = avgSurface * 0.95 + Math.random() * 5;
-  const functionalScore = videoAnalysis.workingScore * 100;
-  const completenessScore = 70 + Math.random() * 30;
-
-  const conditionScore = calculateConditionScore({
-    surfaceDamage: avgSurface,
-    structuralIntegrity: structuralScore,
-    functionalStatus: functionalScore,
-    completeness: completenessScore,
-    aiAdjustment: 50 + aiAssessment.adjustmentFactor,
-  });
-
-  const grade = scoreToGrade(conditionScore);
-  const working = videoAnalysis.workingScore > 0.7;
-  const confidence = (imageAnalyses.reduce((s, a) => s + a.confidence, 0) / imageAnalyses.length + videoAnalysis.confidence) / 2;
-
-  const damageDetected = imageAnalyses
-    .filter(a => a.damageDetected)
-    .map((a, i) => ({
-      location: `image-${i + 1}`,
-      severity: 'minor',
-      description: 'Surface wear detected',
-    }));
 
   const result = {
     productId,
-    conditionScore,
-    grade,
-    working,
-    confidence: Math.round(confidence * 100) / 100,
-    damageDetected,
-    authenticityScore: Math.round(aiAssessment.authenticityScore * 100) / 100,
-    verifiedAt: new Date().toISOString(),
+    ...aiAssessment,
+    verifiedAt: new Date().toISOString()
   };
 
-  // Emit event
   store.emitEvent({
     type: 'ProductVerified',
-    detail: { productId, conditionScore, grade, working },
+    detail: {
+      productId,
+      conditionScore: result.conditionScore,
+      grade: result.grade,
+      working: result.working,
+      recommendedRecoveryPath: result.recommendedRecoveryPath
+    }
   });
 
   return result;
 }
 
 module.exports = {
-  verifyProduct,
-  scoreToGrade,
-  calculateConditionScore,
-  WEIGHTS,
+  verifyProduct
 };
