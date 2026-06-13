@@ -15,7 +15,7 @@ const { rateLimiter } = require('./middleware/rateLimiter');
 const { ensureTable } = require('./db/dynamodb');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Global middleware
 app.use(helmet());
@@ -28,6 +28,12 @@ app.use(rateLimiter);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', service: 'circular-commerce-platform' });
+});
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Circular Commerce Platform API is running',
+    health: '/health'
+  });
 });
 
 // Public routes (no auth required)
