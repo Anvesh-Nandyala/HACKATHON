@@ -15,6 +15,7 @@ const RegisterSchema = z.object({
   password: z.string().min(6).max(128),
   name: z.string().min(1).max(100),
   role: z.enum(['seller', 'buyer', 'admin']).default('seller'),
+  adminCode: z.string().optional(),
 });
 
 const LoginSchema = z.object({
@@ -29,6 +30,12 @@ const LoginSchema = z.object({
 router.post('/register', async (req, res, next) => {
   try {
     const data = RegisterSchema.parse(req.body);
+
+    if (data.role === 'admin') {
+      if (!process.env.ADMIN_INVITE_CODE || data.adminCode !== process.env.ADMIN_INVITE_CODE) {
+        return res.status(403).json({ error: 'Admin invite code required' });
+      }
+    }
 
     // Check if email already exists
     const existing = await store.getUserByEmail(data.email);

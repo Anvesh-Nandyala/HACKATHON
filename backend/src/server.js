@@ -50,6 +50,7 @@ app.use('/api/uploads', authMiddleware, require('./routes/uploads'));
 app.use('/api/products', authMiddleware, productRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/credits', authMiddleware, creditsRoutes);
+app.use('/api/admin', authMiddleware, require('./routes/admin'));
 
 // Error handling
 app.use(errorHandler);

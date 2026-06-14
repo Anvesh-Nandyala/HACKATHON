@@ -11,6 +11,7 @@ import Pickups from './pages/Pickups';
 import PickupDetail from './pages/PickupDetail';
 import MyProducts from './pages/MyProducts';
 import Credits from './pages/Credits';
+import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { api } from './api';
@@ -130,6 +131,12 @@ export default function App() {
                   <span>Sell and</span>
                   <strong>List Product</strong>
                 </Link>
+                {user.role === 'admin' && (
+                  <Link to="/admin" className="header-nav-item">
+                    <span>Manage</span>
+                    <strong>Admin</strong>
+                  </Link>
+                )}
                 <button type="button" onClick={handleLogout} className="header-nav-item header-button">
                   <span>&nbsp;</span>
                   <strong>Sign Out</strong>
@@ -160,6 +167,7 @@ export default function App() {
             ))}
             {user && <NavLink to="/pickups">Pickups</NavLink>}
             {user && <NavLink to="/submit" style={{ color: 'var(--accent)' }}>Sell</NavLink>}
+            {user?.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
           </div>
         </div>
       </header>
@@ -179,6 +187,7 @@ export default function App() {
           <Route path="/submit/upload" element={user ? <ProductMediaUpload onCreditUpdate={refreshCredits} /> : <Navigate to="/login" replace />} />
           <Route path="/my-products" element={user ? <MyProducts /> : <Navigate to="/login" replace />} />
           <Route path="/credits" element={user ? <Credits /> : <Navigate to="/login" replace />} />
+          <Route path="/admin" element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

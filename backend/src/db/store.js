@@ -1,4 +1,4 @@
-const { putItem, getItem, queryByPK, queryGSI, updateItem } = require('./dynamodb');
+const { putItem, getItem, queryByPK, queryGSI, updateItem, deleteItem } = require('./dynamodb');
 
 /**
  * Data access layer backed by DynamoDB.
@@ -98,6 +98,21 @@ const store = {
       ExpressionAttributeValues: { ':sk': 'METADATA', ':status': 'listed' },
     }));
     return Items || [];
+  },
+
+  async getAllProducts() {
+    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+    const { docClient, TABLE_NAME } = require('./dynamodb');
+    const { Items } = await docClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
+      ExpressionAttributeValues: { ':sk': 'METADATA', ':pk': 'PRODUCT#' },
+    }));
+    return Items || [];
+  },
+
+  async deleteProduct(productId) {
+    await deleteItem(`PRODUCT#${productId}`, 'METADATA');
   },
 
   // ─── Transaction operations ───

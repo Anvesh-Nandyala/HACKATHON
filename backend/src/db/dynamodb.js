@@ -127,6 +127,13 @@ async function updateItem(pk, sk, updates) {
   }));
 }
 
+async function deleteItem(pk, sk) {
+  await docClient.send(new DeleteCommand({
+    TableName: TABLE_NAME,
+    Key: { PK: pk, SK: sk },
+  }));
+}
+
 async function conditionalPut(item, conditionExpression, expressionValues) {
   await docClient.send(new PutCommand({
     TableName: TABLE_NAME,
@@ -146,5 +153,6 @@ module.exports = {
   queryByPK,
   queryGSI,
   updateItem,
+  deleteItem,
   conditionalPut,
 };

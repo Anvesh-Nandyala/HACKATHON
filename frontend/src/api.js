@@ -79,4 +79,15 @@ export const api = {
   getBalance: () => request('/credits/balance'),
   getHistory: () => request('/credits/history'),
   redeemCredits: (amount, rewardType) => request('/credits/redeem', { method: 'POST', body: JSON.stringify({ amount, rewardType }) }),
+
+  // Admin
+  getAdminStats: () => request('/admin/stats'),
+  getAdminProducts: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/products${query ? `?${query}` : ''}`);
+  },
+  getAdminReturns: () => request('/admin/returns'),
+  updateAdminProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  markAdminProductReturned: (id, data) => request(`/admin/products/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteAdminProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),
 };
