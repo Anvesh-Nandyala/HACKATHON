@@ -143,13 +143,22 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   color: white;
   text-decoration: none;
   font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 3px;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 4px;
   white-space: nowrap;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.header-nav-item:hover { border-color: white; text-decoration: none; color: white; }
+.header-nav-item:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: white;
+  text-decoration: none;
+  color: white;
+}
 .header-nav-item strong { display: block; font-size: 0.85rem; }
 
 .header-button {
