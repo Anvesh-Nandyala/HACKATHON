@@ -1,15 +1,13 @@
-const {
-  BedrockRuntimeClient,
-  InvokeModelCommand
-} = require('@aws-sdk/client-bedrock-runtime');
-
+const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { store } = require('../db/store');
 
 const AWS_REGION = process.env.AWS_REGION || 'ap-south-2';
-const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
+const BEDROCK_REGION = process.env.BEDROCK_REGION || AWS_REGION;
+const BEDROCK_MODEL_ID = process.env.PRICING_BEDROCK_MODEL_ID
+  || process.env.BEDROCK_MODEL_ID
+  || 'anthropic.claude-3-haiku-20240307-v1:0';
 
-const bedrock = new BedrockRuntimeClient({ region: AWS_REGION });
+const bedrock = new BedrockRuntimeClient({ region: BEDROCK_REGION });
 
 function extractJson(text) {
   const match = text.match(/\{[\s\S]*\}/);
@@ -17,157 +15,111 @@ function extractJson(text) {
   return JSON.parse(match[0]);
 }
 
-function normalizePriceResult(result, originalPrice) {
+function estimatePriceLocally(request) {
+  const originalPrice = Number(request.originalPrice || 1);
+  const ageMonths = Number(request.ageMonths || 0);
+  const conditionScore = Number(request.conditionScore || 75);
+  const ageMultiplier = Math.max(0.35, 1 - ageMonths * 0.015);
+  const conditionMultiplier = Math.max(0.35, conditionScore / 100);
+  const workingMultiplier = request.working === false ? 0.55 : 1;
   const recommendedPrice = Math.max(
     1,
-    Math.round(Number(result.recommendedPrice || originalPrice * 0.5))
-  );
-
-  const min = Math.max(
-    1,
-    Math.round(Number(result.priceRange?.min || recommendedPrice * 0.85))
-  );
-
-  const max = Math.max(
-    min,
-    Math.round(Number(result.priceRange?.max || recommendedPrice * 1.15))
+    Math.round(originalPrice * ageMultiplier * conditionMultiplier * workingMultiplier)
   );
 
   return {
+    productId: request.productId,
     recommendedPrice,
-    priceRange: { min, max },
+    priceRange: {
+      min: Math.max(1, Math.round(recommendedPrice * 0.85)),
+      max: Math.max(1, Math.round(recommendedPrice * 1.15)),
+    },
+    confidence: 0.7,
+    factors: [
+      { name: 'quality', impact: conditionMultiplier, description: `Quality factor ${conditionScore}/100` },
+      { name: 'age', impact: ageMultiplier, description: `${ageMonths} months since purchase` },
+    ],
+    estimatedDaysToSell: conditionScore >= 80 ? 5 : 9,
+  };
+}
+
+function normalizePriceResult(result, originalPrice, productId) {
+  const recommendedPrice = Math.max(1, Math.round(Number(result.recommendedPrice || originalPrice * 0.5)));
+  return {
+    productId,
+    recommendedPrice,
+    priceRange: {
+      min: Math.max(1, Math.round(Number(result.priceRange?.min || recommendedPrice * 0.85))),
+      max: Math.max(1, Math.round(Number(result.priceRange?.max || recommendedPrice * 1.15))),
+    },
     confidence: Math.max(0, Math.min(1, Number(result.confidence || 0.7))),
     factors: Array.isArray(result.factors) ? result.factors : [],
-    estimatedDaysToSell: Math.max(
-      1,
-      Math.round(Number(result.estimatedDaysToSell || 7))
-    )
+    estimatedDaysToSell: Math.max(1, Math.round(Number(result.estimatedDaysToSell || 7))),
   };
 }
 
 async function estimatePriceWithBedrock(request) {
-  const prompt = `
-You are an AI pricing expert for a circular commerce resale marketplace.
-
-Estimate a fair resale price for this second-hand product.
-
-Product data:
-${JSON.stringify(request, null, 2)}
-
-Consider:
-1. Original price
-2. Product category
-3. Age in months
-4. Condition score
-5. Grade
-6. Working status
-7. Local resale demand
-8. Depreciation
-9. Expected buyer trust
-10. Time to sell
-
-Return ONLY valid JSON in this exact format:
+  const response = await bedrock.send(new ConverseCommand({
+    modelId: BEDROCK_MODEL_ID,
+    inferenceConfig: {
+      maxTokens: 700,
+      temperature: 0.2,
+    },
+    messages: [{
+      role: 'user',
+      content: [{
+        text: `Estimate fair local resale pricing for this product. Return ONLY JSON:
 {
   "recommendedPrice": number,
-  "priceRange": {
-    "min": number,
-    "max": number
-  },
+  "priceRange": { "min": number, "max": number },
   "confidence": 0-1,
-  "factors": [
-    {
-      "name": "factor name",
-      "impact": number,
-      "description": "short explanation"
-    }
-  ],
+  "factors": [],
   "estimatedDaysToSell": number
 }
-`;
 
-  const body = {
-    anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: 700,
-    temperature: 0.2,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt
-          }
-        ]
-      }
-    ]
-  };
-
-  const response = await bedrock.send(
-    new InvokeModelCommand({
-      modelId: BEDROCK_MODEL_ID,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify(body)
-    })
-  );
-
-  const decoded = JSON.parse(Buffer.from(response.body).toString('utf8'));
-  const text = decoded.content?.[0]?.text || '{}';
+Product:
+${JSON.stringify(request, null, 2)}`,
+      }],
+    }],
+  }));
 
   return normalizePriceResult(
-    extractJson(text),
-    Number(request.originalPrice || 1)
+    extractJson(response.output?.message?.content?.[0]?.text || '{}'),
+    Number(request.originalPrice || 1),
+    request.productId
   );
 }
 
 async function estimatePrice(request) {
-  const {
-    productId,
-    category,
-    originalPrice,
-    ageMonths,
-    conditionScore,
-    grade,
-    working,
-    location
-  } = request;
-
-  if (!productId) {
-    throw new Error('productId is required');
-  }
-
-  if (!originalPrice || Number(originalPrice) <= 0) {
+  if (!request.productId) throw new Error('productId is required');
+  if (!request.originalPrice || Number(request.originalPrice) <= 0) {
     throw new Error('originalPrice must be greater than 0');
   }
 
-  const result = await estimatePriceWithBedrock({
-    productId,
-    category,
-    originalPrice,
-    ageMonths,
-    conditionScore,
-    grade,
-    working,
-    location
-  });
-
-  const finalResult = {
-    productId,
-    ...result
-  };
+  let result;
+  if (process.env.ENABLE_BEDROCK === 'true') {
+    try {
+      result = await estimatePriceWithBedrock(request);
+    } catch (err) {
+      console.warn(`[pricing] Falling back after Bedrock failure: ${err.message}`);
+      result = estimatePriceLocally(request);
+    }
+  } else {
+    result = estimatePriceLocally(request);
+  }
 
   store.emitEvent({
     type: 'PriceEstimated',
     detail: {
-      productId,
-      recommendedPrice: finalResult.recommendedPrice,
-      confidence: finalResult.confidence
+      productId: request.productId,
+      recommendedPrice: result.recommendedPrice,
+      confidence: result.confidence,
     },
   });
 
-  return finalResult;
+  return result;
 }
 
 module.exports = {
-  estimatePrice
+  estimatePrice,
 };

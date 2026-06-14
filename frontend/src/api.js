@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_ROOT = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = `${API_ROOT.replace(/\/+$/, '').replace(/\/api$/, '')}/api`;
 
 function getToken() {
   return localStorage.getItem('auth_token');
@@ -6,9 +7,10 @@ function getToken() {
 
 async function request(path, options = {}) {
   const token = getToken();
+  const isFormData = options.body instanceof FormData;
   const config = {
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
@@ -42,6 +44,16 @@ export const api = {
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
 
   // Products
+  uploadImage: (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return request('/uploads/image', { method: 'POST', body: formData });
+  },
+  uploadVideo: (file) => {
+    const formData = new FormData();
+    formData.append('video', file);
+    return request('/uploads/video', { method: 'POST', body: formData });
+  },
   submitProduct: (data) => request('/products/submit', { method: 'POST', body: JSON.stringify(data) }),
   getProduct: (id) => request(`/products/${id}`),
   getMyProducts: () => request('/products'),

@@ -54,13 +54,13 @@ const store = {
   async saveProduct(product) {
     const geohash4 = product.location?.geohash?.substring(0, 4) || 'xxxx';
     const item = {
+      ...product,
       PK: `PRODUCT#${product.productId}`,
       SK: 'METADATA',
       GSI1PK: `GEO#${geohash4}`,
       GSI1SK: `${product.status}#${product.createdAt}`,
       GSI2PK: `USER#${product.userId}`,
       GSI2SK: `PRODUCT#${product.createdAt}`,
-      ...product,
       updatedAt: new Date().toISOString(),
     };
     await putItem(item);

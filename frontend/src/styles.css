@@ -865,6 +865,10 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   grid-template-columns: 1fr 1fr;
 }
 
+.sell-layout-narrow {
+  grid-template-columns: minmax(280px, 680px) minmax(240px, 1fr);
+}
+
 /* ─── Info Strip ─── */
 .info-strip {
   display: grid;

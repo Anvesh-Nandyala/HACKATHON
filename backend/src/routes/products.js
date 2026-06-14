@@ -69,6 +69,16 @@ router.post('/submit', async (req, res, next) => {
     });
 
     product.verification = verification;
+
+    if (verification.declaredProductMatch === false) {
+      product.status = 'rejected_media_mismatch';
+      await store.saveProduct(product);
+
+      const err = new Error(verification.mismatchReason || 'Uploaded photos or video do not match the entered product details.');
+      err.statusCode = 400;
+      throw err;
+    }
+
     product.status = 'verified';
     await store.saveProduct(product);
 
@@ -129,6 +139,11 @@ router.post('/submit', async (req, res, next) => {
         grade: verification.grade,
         working: verification.working,
         confidence: verification.confidence,
+        declaredProductMatch: verification.declaredProductMatch,
+        detectedCategory: verification.detectedCategory,
+        detectedBrand: verification.detectedBrand,
+        detectedModel: verification.detectedModel,
+        mismatchReason: verification.mismatchReason,
       },
       pricing: {
         recommendedPrice: priceEstimate.recommendedPrice,

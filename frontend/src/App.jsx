@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate, Link, useNavigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import SubmitProduct from './pages/SubmitProduct';
+import ProductMediaUpload from './pages/ProductMediaUpload';
 import Marketplace from './pages/Marketplace';
 import Nearby from './pages/Nearby';
 import ProductDetail from './pages/ProductDetail';
@@ -174,7 +175,8 @@ export default function App() {
           <Route path="/pickups/:transactionId" element={user ? <PickupDetail /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
           <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={handleLogin} />} />
-          <Route path="/submit" element={user ? <SubmitProduct onCreditUpdate={refreshCredits} /> : <Navigate to="/login" replace />} />
+          <Route path="/submit" element={user ? <SubmitProduct /> : <Navigate to="/login" replace />} />
+          <Route path="/submit/upload" element={user ? <ProductMediaUpload onCreditUpdate={refreshCredits} /> : <Navigate to="/login" replace />} />
           <Route path="/my-products" element={user ? <MyProducts /> : <Navigate to="/login" replace />} />
           <Route path="/credits" element={user ? <Credits /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

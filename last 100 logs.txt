@@ -1,0 +1,419 @@
+----------------------------------------
+/var/log/web.stdout.log
+----------------------------------------
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "expected": "number",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "received": "nan",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "path": [
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:      "latitude"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    ],
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "message": "Expected number, received nan"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  },
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  {
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "code": "invalid_type",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "expected": "number",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "received": "nan",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "path": [
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:      "longitude"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    ],
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "message": "Expected number, received nan"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  }
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]: ] ZodError: [
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  {
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "code": "invalid_type",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "expected": "number",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "received": "nan",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "path": [
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:      "latitude"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    ],
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "message": "Expected number, received nan"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  },
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  {
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "code": "invalid_type",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "expected": "number",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "received": "nan",
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "path": [
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:      "longitude"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    ],
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    "message": "Expected number, received nan"
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:  }
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]: ]
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at get error (/var/app/current/node_modules/zod/lib/types.js:43:31)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at ZodObject.parse (/var/app/current/node_modules/zod/lib/types.js:143:22)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at /var/app/current/src/routes/marketplace.js:14:40
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at Layer.handle [as handle_request] (/var/app/current/node_modules/express/lib/router/layer.js:95:5)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at next (/var/app/current/node_modules/express/lib/router/route.js:144:13)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at Route.dispatch (/var/app/current/node_modules/express/lib/router/route.js:114:3)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at Layer.handle [as handle_request] (/var/app/current/node_modules/express/lib/router/layer.js:95:5)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at /var/app/current/node_modules/express/lib/router/index.js:284:15
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at router.process_params (/var/app/current/node_modules/express/lib/router/index.js:346:12)
+Jun 14 06:28:45 ip-172-31-17-136 web[42857]:    at next (/var/app/current/node_modules/express/lib/router/index.js:280:10)
+Jun 14 06:31:33 ip-172-31-17-136 web[43665]: > circular-commerce-platform@1.0.0 start
+Jun 14 06:31:33 ip-172-31-17-136 web[43665]: > node src/server.js
+Jun 14 06:31:34 ip-172-31-17-136 web[43679]: Circular Commerce Platform running on port 8080
+Jun 14 06:31:34 ip-172-31-17-136 web[43679]: DynamoDB table check failed: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: [ERROR] The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: The Canonical String for this request should have been
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 'POST
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: /
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-invocation-id:2085aa78-cc1a-423d-89bf-6dacf6a0fede
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-request:attempt=1; max=3
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: content-length:203
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: content-type:application/x-amz-json-1.0
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: host:dynamodb.ap-south-2.amazonaws.com
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-content-sha256:55a6f38625c778a518c594a23c0aa9886c3b32e0c7b74f48a01c77be88af8967
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-date:20260614T063143Z
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-target:DynamoDB_20120810.Query
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-user-agent:aws-sdk-js/3.1068.0
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-target;x-amz-user-agent
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 55a6f38625c778a518c594a23c0aa9886c3b32e0c7b74f48a01c77be88af8967'
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: The String-to-Sign should have been
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 'AWS4-HMAC-SHA256
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 20260614T063143Z
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 20260614/ap-south-2/dynamodb/aws4_request
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 83b853a0f09e5c07ec16a59512bc337684a37e291ac94fddb2b04eff12417d1f'
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: InvalidSignatureException: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: The Canonical String for this request should have been
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 'POST
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: /
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-invocation-id:2085aa78-cc1a-423d-89bf-6dacf6a0fede
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-request:attempt=1; max=3
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: content-length:203
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: content-type:application/x-amz-json-1.0
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: host:dynamodb.ap-south-2.amazonaws.com
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-content-sha256:55a6f38625c778a518c594a23c0aa9886c3b32e0c7b74f48a01c77be88af8967
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-date:20260614T063143Z
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-target:DynamoDB_20120810.Query
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: x-amz-user-agent:aws-sdk-js/3.1068.0
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: amz-sdk-invocation-id;amz-sdk-request;content-length;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-target;x-amz-user-agent
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 55a6f38625c778a518c594a23c0aa9886c3b32e0c7b74f48a01c77be88af8967'
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: The String-to-Sign should have been
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 'AWS4-HMAC-SHA256
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 20260614T063143Z
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 20260614/ap-south-2/dynamodb/aws4_request
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]: 83b853a0f09e5c07ec16a59512bc337684a37e291ac94fddb2b04eff12417d1f'
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at ProtocolLib.getErrorSchemaOrThrowBaseException (/var/app/current/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:70:67)
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at AwsJson1_0Protocol.handleError (/var/app/current/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:807:65)
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at AwsJson1_0Protocol.deserializeResponse (/var/app/current/node_modules/@smithy/core/dist-cjs/submodules/protocols/index.js:514:24)
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async /var/app/current/node_modules/@smithy/core/dist-cjs/submodules/schema/index.js:25:24
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async /var/app/current/node_modules/@aws-sdk/lib-dynamodb/dist-cjs/index.js:107:34
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async /var/app/current/node_modules/@smithy/core/dist-cjs/index.js:118:20
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async /var/app/current/node_modules/@smithy/core/dist-cjs/submodules/retry/index.js:172:50
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async /var/app/current/node_modules/@aws-sdk/core/dist-cjs/submodules/client/index.js:119:26
+Jun 14 06:31:43 ip-172-31-17-136 web[43679]:    at async queryGSI (/var/app/current/src/db/dynamodb.js:106:21)
+
+
+----------------------------------------
+/var/log/eb-engine.log
+----------------------------------------
+2026/06/14 06:31:30.703754 [INFO] Executing instruction: stop X-Ray
+2026/06/14 06:31:30.703756 [INFO] stop X-Ray ...
+2026/06/14 06:31:30.703767 [INFO] Running command: systemctl show -p PartOf xray.service
+2026/06/14 06:31:30.717781 [WARN] stopProcess Warning: process xray is not registered 
+2026/06/14 06:31:30.717814 [INFO] Running command: systemctl stop xray.service
+2026/06/14 06:31:30.732285 [INFO] Executing instruction: stop proxy
+2026/06/14 06:31:30.732318 [INFO] Running command: systemctl show -p PartOf httpd.service
+2026/06/14 06:31:30.747253 [WARN] deregisterProcess Warning: process httpd is not registered, skipping...
+
+2026/06/14 06:31:30.747286 [INFO] Running command: systemctl show -p PartOf nginx.service
+2026/06/14 06:31:30.759298 [INFO] Running command: systemctl is-active nginx.service
+2026/06/14 06:31:30.767721 [INFO] Running command: systemctl show -p PartOf nginx.service
+2026/06/14 06:31:30.777551 [INFO] Running command: systemctl stop nginx.service
+2026/06/14 06:31:31.038231 [INFO] Running command: systemctl disable nginx.service
+2026/06/14 06:31:31.287375 [INFO] Running command: systemctl daemon-reload
+2026/06/14 06:31:31.566765 [INFO] Running command: systemctl reset-failed
+2026/06/14 06:31:31.575478 [INFO] Executing instruction: FlipApplication
+2026/06/14 06:31:31.575502 [INFO] Fetching environment variables...
+2026/06/14 06:31:31.575778 [INFO] Purge old process...
+2026/06/14 06:31:31.575797 [INFO] Running command: systemctl stop eb-app.target
+2026/06/14 06:31:31.586745 [INFO] Running command: systemctl show -p ConsistsOf eb-app.target | cut -d= -f2
+2026/06/14 06:31:31.618129 [INFO] web.service
+
+2026/06/14 06:31:31.618155 [INFO] deregistering process: web
+2026/06/14 06:31:31.618165 [INFO] Running command: systemctl show -p PartOf web.service
+2026/06/14 06:31:31.659288 [INFO] Running command: systemctl is-active web.service
+2026/06/14 06:31:31.667529 [INFO] Running command: systemctl disable web.service
+2026/06/14 06:31:31.947397 [INFO] Removed "/etc/systemd/system/multi-user.target.wants/web.service".
+
+2026/06/14 06:31:31.947477 [INFO] Running command: systemctl daemon-reload
+2026/06/14 06:31:32.198940 [INFO] Running command: systemctl reset-failed
+2026/06/14 06:31:32.207714 [INFO] Running command: systemctl is-active web.service
+2026/06/14 06:31:32.215569 [INFO] Process web has been fully terminated
+2026/06/14 06:31:32.215593 [INFO] All processes have been fully terminated
+2026/06/14 06:31:32.215598 [INFO] Removing /var/app/current/ if it exists
+2026/06/14 06:31:32.357972 [INFO] Renaming /var/app/staging/ to /var/app/current/
+2026/06/14 06:31:32.358085 [INFO] Register application processes...
+2026/06/14 06:31:32.358090 [INFO] Registering the proc: web
+
+2026/06/14 06:31:32.358101 [INFO] Running command: systemctl show -p PartOf web.service
+2026/06/14 06:31:32.382182 [INFO] Running command: systemctl daemon-reload
+2026/06/14 06:31:32.657157 [INFO] Running command: systemctl reset-failed
+2026/06/14 06:31:32.665715 [INFO] Running command: systemctl is-enabled eb-app.target
+2026/06/14 06:31:32.673604 [INFO] Running command: systemctl enable eb-app.target
+2026/06/14 06:31:32.957573 [INFO] Running command: systemctl start eb-app.target
+2026/06/14 06:31:32.967049 [INFO] Running command: systemctl enable web.service
+2026/06/14 06:31:33.228893 [INFO] Created symlink /etc/systemd/system/multi-user.target.wants/web.service â†’ /etc/systemd/system/web.service.
+
+2026/06/14 06:31:33.228932 [INFO] Running command: systemctl show -p PartOf web.service
+2026/06/14 06:31:33.239646 [INFO] Running command: systemctl is-active web.service
+2026/06/14 06:31:33.247434 [INFO] Running command: systemctl start web.service
+2026/06/14 06:31:35.320304 [INFO] Executing instruction: start X-Ray
+2026/06/14 06:31:35.320313 [INFO] X-Ray is not enabled.
+2026/06/14 06:31:35.320318 [INFO] Executing instruction: start proxy with new configuration
+2026/06/14 06:31:35.320575 [INFO] Running command: /usr/sbin/nginx -t -c /var/proxy/staging/nginx/nginx.conf
+2026/06/14 06:31:35.346576 [INFO] nginx: [warn] could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+nginx: the configuration file /var/proxy/staging/nginx/nginx.conf syntax is ok
+nginx: configuration file /var/proxy/staging/nginx/nginx.conf test is successful
+
+2026/06/14 06:31:35.346843 [INFO] Running command: cp -rp /var/proxy/staging/nginx/* /etc/nginx
+2026/06/14 06:31:35.352754 [INFO] Running command: systemctl show -p PartOf nginx.service
+2026/06/14 06:31:35.371047 [INFO] Running command: systemctl daemon-reload
+2026/06/14 06:31:35.638847 [INFO] Running command: systemctl reset-failed
+2026/06/14 06:31:35.653989 [INFO] Running command: systemctl show -p PartOf nginx.service
+2026/06/14 06:31:35.676933 [INFO] Running command: systemctl is-active nginx.service
+2026/06/14 06:31:35.686422 [INFO] Running command: systemctl start nginx.service
+2026/06/14 06:31:35.803753 [INFO] Executing instruction: configureSqsd
+2026/06/14 06:31:35.803773 [INFO] This is a web server environment instance, skip configure sqsd daemon ...
+2026/06/14 06:31:35.803779 [INFO] Executing instruction: startSqsd
+2026/06/14 06:31:35.803782 [INFO] This is a web server environment instance, skip start sqsd daemon ...
+2026/06/14 06:31:35.803787 [INFO] Executing instruction: Track pids in healthd
+2026/06/14 06:31:35.803791 [INFO] This is an enhanced health env...
+2026/06/14 06:31:35.803804 [INFO] Running command: systemctl show -p ConsistsOf aws-eb.target | cut -d= -f2
+2026/06/14 06:31:35.815132 [INFO] amazon-cloudwatch-agent.service cfn-hup.service healthd.service nginx.service
+
+2026/06/14 06:31:35.815164 [INFO] Running command: systemctl show -p ConsistsOf eb-app.target | cut -d= -f2
+2026/06/14 06:31:35.825986 [INFO] web.service
+
+2026/06/14 06:31:35.826236 [INFO] Executing instruction: RunAppDeployPostDeployHooks
+2026/06/14 06:31:35.826246 [INFO] No hooks found in .platform/hooks/postdeploy/, skipping
+2026/06/14 06:31:35.826249 [INFO] Executing cleanup logic
+2026/06/14 06:31:35.826334 [INFO] CommandService Response: {"status":"SUCCESS","api_version":"1.0","results":[{"status":"SUCCESS","msg":"Engine execution has succeeded.","returncode":0,"events":[{"msg":"Instance deployment completed successfully.","timestamp":1781418695826,"severity":"INFO"}]}]}
+
+2026/06/14 06:31:35.852472 [INFO] Platform Engine finished execution on command: app-deploy
+
+2026/06/14 06:36:21.987339 [INFO] Starting...
+2026/06/14 06:36:21.987389 [INFO] Starting EBPlatform-PlatformEngine
+2026/06/14 06:36:21.987420 [INFO] reading event message file
+2026/06/14 06:36:21.987793 [INFO] Engine received EB command cfn-hup-exec
+
+2026/06/14 06:36:22.079025 [INFO] Running command: /opt/aws/bin/cfn-get-metadata -s arn:aws:cloudformation:ap-south-2:861556843635:stack/awseb-e-zajuymwh5y-stack/dc3dc4c0-6756-11f1-99a2-0a1a45c21d15 -r AWSEBAutoScalingGroup --region ap-south-2
+2026/06/14 06:36:22.330258 [INFO] Running command: /opt/aws/bin/cfn-get-metadata -s arn:aws:cloudformation:ap-south-2:861556843635:stack/awseb-e-zajuymwh5y-stack/dc3dc4c0-6756-11f1-99a2-0a1a45c21d15 -r AWSEBBeanstalkMetadata --region ap-south-2
+2026/06/14 06:36:22.589492 [INFO] checking whether command tail-log is applicable to this instance...
+2026/06/14 06:36:22.589506 [INFO] this command is applicable to the instance, thus instance should execute command
+2026/06/14 06:36:22.589511 [INFO] Engine command: (tail-log)
+
+2026/06/14 06:36:22.589561 [INFO] Executing instruction: GetTailLogs
+2026/06/14 06:36:22.589565 [INFO] Tail Logs...
+2026/06/14 06:36:22.590711 [INFO] Running command: tail -n 100 /var/log/web.stdout.log
+2026/06/14 06:36:22.593534 [INFO] Running command: tail -n 100 /var/log/eb-engine.log
+
+
+----------------------------------------
+/var/log/nginx/access.log
+----------------------------------------
+172.31.17.64 - - [14/Jun/2026:06:24:06 +0000] "GET /geoserver/web/ HTTP/1.1" 404 153 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/135.0.0.0 Safari/537.36" "65.49.1.108"
+172.31.17.64 - - [14/Jun/2026:06:24:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:24:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:24:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:24:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:24:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:24:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:24:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:25:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:25:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:25:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:25:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:25:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:25:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:25:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:25:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:26:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:26:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:26:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:26:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:26:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:26:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:26:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:26:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:27:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:27:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:27:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:27:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:27:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:27:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:27:49 +0000] "GET /api/marketplace/nearby?latitude=40.7128&longitude=-74.006&radiusKm=50 HTTP/1.1" 500 33 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.8457" "103.152.185.144"
+172.31.17.64 - - [14/Jun/2026:06:27:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:28:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:28:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:28:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:28:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:28:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:28:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:28:45 +0000] "GET /api/marketplace/nearby HTTP/1.1" 400 168 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.8457" "103.152.185.144"
+172.31.47.226 - - [14/Jun/2026:06:28:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:28:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:29:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:29:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:29:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:29:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:29:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:29:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:29:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:29:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:30:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:30:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:30:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:30:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:30:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:30:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:30:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:30:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:31:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:31:12 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:31:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:31:27 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:31:42 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:31:43 +0000] "GET /api/marketplace/nearby?latitude=40.7128&longitude=-74.006&radiusKm=50 HTTP/1.1" 500 33 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.8457" "103.152.185.144"
+172.31.47.226 - - [14/Jun/2026:06:31:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:31:57 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:32:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:32:13 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:32:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:32:28 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:32:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:32:43 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:32:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:32:58 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:33:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:33:13 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:33:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:33:28 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:33:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:33:43 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:33:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:33:58 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:34:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:34:13 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:34:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:34:28 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:34:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:34:43 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:34:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:34:58 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:35:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:35:13 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:35:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:35:28 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:35:34 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:35:43 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:35:49 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:35:58 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:36:04 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.17.64 - - [14/Jun/2026:06:36:13 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+172.31.47.226 - - [14/Jun/2026:06:36:19 +0000] "GET /health HTTP/1.1" 200 59 "-" "ELB-HealthChecker/2.0" "-"
+
+
+----------------------------------------
+/var/log/nginx/error.log
+----------------------------------------
+2026/06/13 19:12:54 [error] 7167#7167: *45 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:01 [error] 7167#7167: *47 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:09 [error] 7167#7167: *49 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:16 [error] 7167#7167: *51 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:19 [warn] 7329#7329: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:13:19 [warn] 7330#7330: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:13:24 [error] 7332#7332: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:25 [error] 7333#7333: *3 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET /health HTTP/1.1", upstream: "http://127.0.0.1:8080/health", host: "circular-commerce-env.eba-3m2mqyru.ap-south-2.elasticbeanstalk.com"
+2026/06/13 19:13:25 [error] 7333#7333: *3 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET /favicon.ico HTTP/1.1", upstream: "http://127.0.0.1:8080/favicon.ico", host: "circular-commerce-env.eba-3m2mqyru.ap-south-2.elasticbeanstalk.com", referrer: "http://circular-commerce-env.eba-3m2mqyru.ap-south-2.elasticbeanstalk.com/health"
+2026/06/13 19:13:31 [error] 7332#7332: *6 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:39 [error] 7332#7332: *8 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:46 [error] 7332#7332: *10 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:13:54 [error] 7332#7332: *12 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:01 [error] 7332#7332: *14 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:09 [error] 7332#7332: *16 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:16 [error] 7332#7332: *18 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:24 [error] 7332#7332: *20 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:31 [error] 7332#7332: *22 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:39 [error] 7332#7332: *24 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:46 [error] 7332#7332: *26 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:14:54 [error] 7332#7332: *28 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:15:01 [error] 7332#7332: *30 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:15:09 [error] 7332#7332: *32 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:15:16 [error] 7332#7332: *34 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.47.226, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:15:24 [error] 7332#7332: *36 connect() failed (111: Connection refused) while connecting to upstream, client: 172.31.17.64, server: , request: "GET / HTTP/1.1", upstream: "http://127.0.0.1:8080/", host: "172.31.17.136"
+2026/06/13 19:15:29 [warn] 7873#7873: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:15:30 [warn] 7906#7906: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:15:30 [warn] 7907#7907: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:16:41 [warn] 8454#8454: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:16:41 [warn] 8487#8487: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:16:41 [warn] 8488#8488: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:21:48 [warn] 9150#9150: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:21:48 [warn] 9183#9183: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:21:48 [warn] 9184#9184: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:33:05 [warn] 10047#10047: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:33:05 [warn] 10080#10080: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:33:06 [warn] 10081#10081: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:39:45 [warn] 10808#10808: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:39:46 [warn] 10841#10841: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:39:46 [warn] 10842#10842: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:42:57 [warn] 11447#11447: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:42:57 [warn] 11480#11480: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:42:57 [warn] 11481#11481: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:48:21 [warn] 12156#12156: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:48:22 [warn] 12189#12189: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:48:22 [warn] 12190#12190: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:52:23 [warn] 12845#12845: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:52:23 [warn] 12878#12878: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:52:23 [warn] 12879#12879: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:53:32 [warn] 13425#13425: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:53:33 [warn] 13458#13458: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:53:33 [warn] 13459#13459: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:59:03 [warn] 14133#14133: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:59:03 [warn] 14166#14166: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 19:59:03 [warn] 14167#14167: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:01:55 [warn] 14831#14831: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:01:55 [warn] 14864#14864: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:01:55 [warn] 14865#14865: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:14:05 [warn] 15787#15787: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:14:06 [warn] 15820#15820: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:14:06 [warn] 15821#15821: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:19:10 [warn] 16490#16490: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:19:10 [warn] 16523#16523: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:19:10 [warn] 16524#16524: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:43:07 [warn] 17775#17775: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:43:08 [warn] 17808#17808: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:43:08 [warn] 17809#17809: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:47:40 [warn] 18471#18471: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:47:41 [warn] 18504#18504: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:47:41 [warn] 18505#18505: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:54:18 [warn] 19245#19245: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:54:19 [warn] 19278#19278: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 20:54:19 [warn] 19279#19279: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:16:13 [warn] 20607#20607: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:16:14 [warn] 20640#20640: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:16:14 [warn] 20641#20641: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:22:28 [warn] 21370#21370: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:22:28 [warn] 21403#21403: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:22:28 [warn] 21404#21404: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:39:26 [warn] 22505#22505: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:39:26 [warn] 22538#22538: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 21:39:26 [warn] 22539#22539: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:04:46 [warn] 23910#23910: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:04:46 [warn] 23943#23943: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:04:46 [warn] 23944#23944: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:12:00 [warn] 24687#24687: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:12:00 [warn] 24720#24720: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/13 22:12:00 [warn] 24721#24721: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 05:58:57 [warn] 40613#40613: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 05:58:58 [warn] 40646#40646: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 05:58:58 [warn] 40647#40647: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:23:26 [warn] 42029#42029: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:23:27 [warn] 42062#42062: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:23:27 [warn] 42063#42063: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:27:22 [warn] 42868#42868: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:27:23 [warn] 42901#42901: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:27:23 [warn] 42902#42902: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:31:35 [warn] 43690#43690: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:31:35 [warn] 43724#43724: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+2026/06/14 06:31:35 [warn] 43725#43725: could not build optimal types_hash, you should increase either types_hash_max_size: 1024 or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+
