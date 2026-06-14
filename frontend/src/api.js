@@ -38,6 +38,25 @@ async function request(path, options = {}) {
   return data;
 }
 
+async function requestBlob(path) {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    },
+  });
+
+  if (!res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    const data = contentType.includes('application/json')
+      ? await res.json()
+      : { error: 'Request failed' };
+    throw new Error(data.error || 'Request failed');
+  }
+
+  return URL.createObjectURL(await res.blob());
+}
+
 export const api = {
   // Auth
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -87,6 +106,7 @@ export const api = {
     return request(`/admin/products${query ? `?${query}` : ''}`);
   },
   getAdminReturns: () => request('/admin/returns'),
+  getAdminMediaUrl: (id, kind, index = 0) => requestBlob(`/admin/products/${id}/media/${kind}/${index}`),
   updateAdminProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   markAdminProductReturned: (id, data) => request(`/admin/products/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAdminProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),

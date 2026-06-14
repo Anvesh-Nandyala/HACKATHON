@@ -83,6 +83,37 @@ export default function App() {
     navigate(`/marketplace${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
+  if (user?.role === 'admin') {
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="header-top">
+            <Link to="/admin" className="header-logo">ReCircle Admin</Link>
+            <div className="header-nav" style={{ marginLeft: 'auto' }}>
+              <Link to="/admin" className="header-nav-item">
+                <span>Manage</span>
+                <strong>Dashboard</strong>
+              </Link>
+              <button type="button" onClick={handleLogout} className="header-nav-item header-button">
+                <span>&nbsp;</span>
+                <strong>Sign Out</strong>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="main">
+          <Routes>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/login" element={<Navigate to="/admin" replace />} />
+            <Route path="/register" element={<Navigate to="/admin" replace />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="header">

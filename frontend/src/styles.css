@@ -966,8 +966,64 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
 .admin-status-hidden,
 .admin-status-archived { background: var(--gray-200); color: var(--gray-700); }
 
-.admin-editor {
+.admin-expanded-panel {
   background: var(--gray-50);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.admin-media-section {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.admin-media-section h3 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-media-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.admin-media-thumb,
+.admin-media-video {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  height: 160px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.admin-media-video {
+  grid-column: span 2;
+}
+
+.admin-media-empty,
+.admin-media-error {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  color: var(--gray-500);
+  padding: 0.75rem 1rem;
+}
+
+.admin-media-error {
+  border-left: 4px solid var(--red);
+  color: var(--red);
+  margin-bottom: 0.75rem;
+}
+
+.admin-editor {
+  background: white;
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius);
   display: grid;
   gap: 0.75rem;

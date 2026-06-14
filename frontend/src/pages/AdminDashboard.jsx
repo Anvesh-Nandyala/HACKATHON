@@ -32,6 +32,80 @@ function statusLabel(status) {
   return String(status || 'unknown').replace(/_/g, ' ');
 }
 
+function AdminMediaPreview({ product }) {
+  const [media, setMedia] = useState({ images: [], video: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const imageCount = product.media?.imageCount || 0;
+  const hasVideo = Boolean(product.media?.hasVideo);
+
+  useEffect(() => {
+    let cancelled = false;
+    const urls = [];
+
+    async function loadMedia() {
+      if (!imageCount && !hasVideo) {
+        setMedia({ images: [], video: '' });
+        setError('');
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      try {
+        const imageIndexes = Array.from({ length: Math.min(imageCount, 4) }, (_, index) => index);
+        const images = await Promise.all(
+          imageIndexes.map(index => api.getAdminMediaUrl(product.productId, 'image', index))
+        );
+        urls.push(...images);
+
+        const video = hasVideo
+          ? await api.getAdminMediaUrl(product.productId, 'video', 0)
+          : '';
+        if (video) urls.push(video);
+
+        if (!cancelled) setMedia({ images, video });
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Could not load uploaded media.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadMedia();
+
+    return () => {
+      cancelled = true;
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [product.productId, imageCount, hasVideo]);
+
+  if (!imageCount && !hasVideo) {
+    return <div className="admin-media-empty">No uploaded pictures or video.</div>;
+  }
+
+  return (
+    <div className="admin-media-section">
+      <h3>Uploaded Pictures and Video</h3>
+      {loading && <div className="admin-muted">Loading media...</div>}
+      {error && <div className="admin-media-error">{error}</div>}
+      <div className="admin-media-grid">
+        {media.images.map((url, index) => (
+          <img
+            key={url}
+            className="admin-media-thumb"
+            src={url}
+            alt={`${product.name} upload ${index + 1}`}
+          />
+        ))}
+        {media.video && (
+          <video className="admin-media-video" src={media.video} controls />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductEditor({ product, onSave, onReturn, onDelete, busy }) {
   const [draft, setDraft] = useState(() => ({
     status: product.status || 'listed',
@@ -65,52 +139,55 @@ function ProductEditor({ product, onSave, onReturn, onDelete, busy }) {
   };
 
   return (
-    <div className="admin-editor">
-      <div className="form-group">
-        <label>Status</label>
-        <select value={draft.status} onChange={update('status')}>
-          {STATUSES.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Category</label>
-        <select value={draft.category} onChange={update('category')}>
-          {CATEGORIES.map(category => <option key={category} value={category}>{category.replace(/-/g, ' ')}</option>)}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Brand</label>
-        <input value={draft.brand} onChange={update('brand')} />
-      </div>
-      <div className="form-group">
-        <label>Model</label>
-        <input value={draft.model} onChange={update('model')} />
-      </div>
-      <div className="form-group">
-        <label>Condition</label>
-        <select value={draft.condition} onChange={update('condition')}>
-          <option value="like-new">like new</option>
-          <option value="refurbished">refurbished</option>
-          <option value="used">used</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Price</label>
-        <input type="number" min="1" value={draft.recommendedPrice} onChange={update('recommendedPrice')} />
-      </div>
-      <div className="form-group admin-editor-wide">
-        <label>Return Reason</label>
-        <input value={draft.returnReason} onChange={update('returnReason')} placeholder="Reason if returned" />
-      </div>
-      <div className="form-group admin-editor-wide">
-        <label>Admin Note</label>
-        <textarea rows="2" value={draft.adminNote} onChange={update('adminNote')} />
-      </div>
-      <div className="admin-editor-actions">
-        <button className="btn btn-primary" disabled={busy} onClick={() => onSave(product.productId, payload)}>Save</button>
-        <button className="btn btn-secondary" disabled={busy} onClick={() => onReturn(product.productId, payload)}>Mark Returned</button>
-        <button className="btn btn-secondary" disabled={busy} onClick={() => onSave(product.productId, { status: 'hidden' })}>Hide</button>
-        <button className="btn btn-secondary" disabled={busy} onClick={() => onDelete(product.productId)}>Delete</button>
+    <div className="admin-expanded-panel">
+      <AdminMediaPreview product={product} />
+      <div className="admin-editor">
+        <div className="form-group">
+          <label>Status</label>
+          <select value={draft.status} onChange={update('status')}>
+            {STATUSES.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Category</label>
+          <select value={draft.category} onChange={update('category')}>
+            {CATEGORIES.map(category => <option key={category} value={category}>{category.replace(/-/g, ' ')}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Brand</label>
+          <input value={draft.brand} onChange={update('brand')} />
+        </div>
+        <div className="form-group">
+          <label>Model</label>
+          <input value={draft.model} onChange={update('model')} />
+        </div>
+        <div className="form-group">
+          <label>Condition</label>
+          <select value={draft.condition} onChange={update('condition')}>
+            <option value="like-new">like new</option>
+            <option value="refurbished">refurbished</option>
+            <option value="used">used</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Price</label>
+          <input type="number" min="1" value={draft.recommendedPrice} onChange={update('recommendedPrice')} />
+        </div>
+        <div className="form-group admin-editor-wide">
+          <label>Return Reason</label>
+          <input value={draft.returnReason} onChange={update('returnReason')} placeholder="Reason if returned" />
+        </div>
+        <div className="form-group admin-editor-wide">
+          <label>Admin Note</label>
+          <textarea rows="2" value={draft.adminNote} onChange={update('adminNote')} />
+        </div>
+        <div className="admin-editor-actions">
+          <button className="btn btn-primary" disabled={busy} onClick={() => onSave(product.productId, payload)}>Save</button>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => onReturn(product.productId, payload)}>Mark Returned</button>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => onSave(product.productId, { status: 'hidden' })}>Hide</button>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => onDelete(product.productId)}>Delete</button>
+        </div>
       </div>
     </div>
   );
@@ -239,15 +316,15 @@ export default function AdminDashboard() {
 
       {stats && (
         <div className="admin-stats">
-          <div className="stat-card"><div className="stat-value">{stats.totalProducts}</div><div className="stat-label">Total Products</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.activeListed}</div><div className="stat-label">Listed</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.returned}</div><div className="stat-label">Returned</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.reserved}</div><div className="stat-label">Reserved</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.totalProducts}</div><div className="stat-label">User Products</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.activeListed}</div><div className="stat-label">Existing Listings</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.returned}</div><div className="stat-label">Returned Products</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.reserved}</div><div className="stat-label">User to User</div></div>
         </div>
       )}
 
       <div className="admin-tabs">
-        <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Products</button>
+        <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Existing User Products</button>
         <button className={tab === 'returns' ? 'active' : ''} onClick={() => setTab('returns')}>Returned Products</button>
       </div>
 

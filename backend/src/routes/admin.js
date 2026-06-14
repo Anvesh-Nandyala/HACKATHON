@@ -1,9 +1,15 @@
 const express = require('express');
 const { z } = require('zod');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { store } = require('../db/store');
 const { CATEGORIES } = require('../validators/schemas');
 
 const router = express.Router();
+
+const s3Client = new S3Client({
+  region: process.env.S3_REGION || process.env.AWS_REGION || 'ap-south-2',
+});
+const S3_BUCKET = process.env.S3_BUCKET;
 
 const PRODUCT_STATUSES = [
   'pending_verification',
@@ -66,6 +72,10 @@ function serializeProduct(product) {
     adminNote: product.adminNote,
     returnReason: product.returnReason,
     returnedAt: product.returnedAt,
+    media: {
+      imageCount: product.mediaKeys?.images?.length || 0,
+      hasVideo: Boolean(product.mediaKeys?.video),
+    },
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
@@ -127,6 +137,34 @@ router.get('/products', async (req, res, next) => {
       .map(serializeProduct);
 
     res.json({ products, count: products.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/products/:productId/media/:kind/:index?', async (req, res, next) => {
+  try {
+    if (!S3_BUCKET) return res.status(500).json({ error: 'S3 bucket is not configured' });
+
+    const product = await store.getProduct(req.params.productId);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const { kind } = req.params;
+    const index = parseInt(req.params.index || '0', 10);
+    const key = kind === 'video'
+      ? product.mediaKeys?.video
+      : product.mediaKeys?.images?.[index];
+
+    if (!key) return res.status(404).json({ error: 'Media not found' });
+
+    const object = await s3Client.send(new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    }));
+
+    res.setHeader('Content-Type', object.ContentType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    object.Body.pipe(res);
   } catch (err) {
     next(err);
   }
