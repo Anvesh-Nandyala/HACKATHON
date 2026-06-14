@@ -6,23 +6,21 @@ const { store } = require('../db/store');
 const { verifyProduct } = require('../services/verification');
 const { estimatePrice } = require('../services/pricing');
 const { determineRoute } = require('../services/routing');
+const { invalidateOnProductChange } = require('../services/cacheInvalidation');
+const queue = require('../services/queue');
 
 const router = express.Router();
 
 /**
  * POST /api/products/submit
  * Submit a product for verification, pricing, and routing.
+ * If SQS queues are enabled, pricing and routing are dispatched asynchronously.
+ * Otherwise, falls back to synchronous processing (original behavior).
  */
 router.post('/submit', async (req, res, next) => {
   try {
     const data = ProductSubmissionSchema.parse(req.body);
     const userId = req.user.userId;
-
-    // Check daily submission limit (max 10 per day)
-    // const withinLimit = await store.checkDailyLimit(userId);
-    // if (!withinLimit) {
-    //   return res.status(429).json({ error: 'Daily submission limit reached (10 per day)' });
-    // }
 
     const productId = uuidv4();
     const geohash = ngeohash.encode(data.location.latitude, data.location.longitude, 6);
@@ -57,7 +55,7 @@ router.post('/submit', async (req, res, next) => {
     await store.saveProduct(product);
     await store.incrementDailySubmission(userId);
 
-    // Run verification pipeline
+    // Run verification pipeline (always synchronous — fast, local)
     const verification = await verifyProduct({
       productId,
       userId,
@@ -82,7 +80,66 @@ router.post('/submit', async (req, res, next) => {
     product.status = 'verified';
     await store.saveProduct(product);
 
-    // Run price estimation
+    // ─── Async path: dispatch to SQS queues if enabled ───
+    if (queue.isEnabled() && process.env.ENABLE_ASYNC_PROCESSING !== 'false') {
+      const pricingPayload = {
+        category: data.category,
+        brand: data.brand || 'Unknown',
+        model: data.model || 'Unknown',
+        originalPrice: data.originalPrice,
+        ageMonths: data.ageMonths,
+        conditionScore: verification.conditionScore,
+        grade: verification.grade,
+        working: verification.working,
+        location: data.location,
+      };
+
+      const routingPayload = {
+        conditionScore: verification.conditionScore,
+        grade: verification.grade,
+        category: data.category,
+        estimatedPrice: data.originalPrice,
+        location: data.location,
+        weight: data.weight || 1,
+        dimensions: data.dimensions || { length: 30, width: 20, height: 15 },
+        working: verification.working,
+        authenticityScore: verification.authenticityScore,
+      };
+
+      // Enqueue both tasks
+      const [pricingResult, routingResult] = await Promise.all([
+        queue.enqueuePricingTask(productId, pricingPayload),
+        queue.enqueueRoutingTask(productId, routingPayload),
+      ]);
+
+      // If both enqueued successfully, respond with "processing" status
+      if (pricingResult && routingResult) {
+        product.status = 'processing';
+        await store.saveProduct(product);
+
+        return res.status(202).json({
+          productId,
+          status: 'processing',
+          message: 'Product verified. AI pricing and routing are being processed in the background.',
+          verification: {
+            conditionScore: verification.conditionScore,
+            grade: verification.grade,
+            working: verification.working,
+            confidence: verification.confidence,
+            declaredProductMatch: verification.declaredProductMatch,
+            detectedCategory: verification.detectedCategory,
+            detectedBrand: verification.detectedBrand,
+            detectedModel: verification.detectedModel,
+            mismatchReason: verification.mismatchReason,
+          },
+        });
+      }
+
+      // If enqueue failed, fall through to synchronous processing
+      console.warn(`[Products] Queue dispatch failed, falling back to synchronous processing`);
+    }
+
+    // ─── Synchronous path: original behavior (fallback) ───
     const priceEstimate = await estimatePrice({
       productId,
       category: data.category,
@@ -99,7 +156,6 @@ router.post('/submit', async (req, res, next) => {
     product.priceEstimate = priceEstimate;
     await store.saveProduct(product);
 
-    // Run routing decision
     const routingDecision = await determineRoute({
       productId,
       conditionScore: verification.conditionScore,
@@ -116,13 +172,12 @@ router.post('/submit', async (req, res, next) => {
     });
 
     product.routingDecision = routingDecision;
-
-    // Make every submitted product visible in marketplace/nearby after analysis.
     product.status = 'listed';
 
     await store.saveProduct(product);
+    await invalidateOnProductChange(product);
 
-    // Award Green Credits for listing a product (sustainable action)
+    // Award Green Credits for listing a product
     const { awardCredits } = require('../services/credits');
     const creditResult = await awardCredits(userId, {
       actionType: 'sell',

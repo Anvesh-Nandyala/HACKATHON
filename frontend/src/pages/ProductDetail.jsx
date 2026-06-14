@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import AIInspectionReport from '../components/AIInspectionReport';
+import CompatibilityCheck from '../components/CompatibilityCheck';
+import GreenImpactModal from '../components/GreenImpactModal';
 
 function productName(product) {
   return product.name || [product.brand, product.model].filter(Boolean).join(' ') || product.category || 'Product';
@@ -52,6 +55,8 @@ export default function ProductDetail({ user }) {
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
   const [cartQuantity, setCartQuantity] = useState(0);
+  const [showImpactModal, setShowImpactModal] = useState(false);
+  const [impactData, setImpactData] = useState(null);
 
   const isDemo = productId.startsWith('demo-');
 
@@ -120,6 +125,13 @@ export default function ProductDetail({ user }) {
       });
       setProduct({ ...product, status: 'reserved' });
       setMessage('Reserved for pickup. Open Pickups to see your OTP.');
+      setImpactData({
+        co2SavedKg: product.co2SavedKg || 3.5,
+        creditsAwarded: 25,
+        tierProgress: 65,
+        nextTier: 'Silver',
+      });
+      setShowImpactModal(true);
     } catch (err) {
       setMessage(err.message || 'Could not reserve this product.');
     } finally {
@@ -263,6 +275,15 @@ export default function ProductDetail({ user }) {
           )}
 
           {message && <div className="status-message" style={{ marginTop: '0.75rem' }}>{message}</div>}
+
+          {/* AI Inspection Report */}
+          {product && <AIInspectionReport product={product} />}
+
+          {/* AI Compatibility Check */}
+          {product?.productId && product.status === 'listed' && <CompatibilityCheck productId={product.productId} />}
+
+          {/* Green Impact Modal */}
+          <GreenImpactModal visible={showImpactModal} onClose={() => setShowImpactModal(false)} data={impactData} />
 
           <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--gray-200)' }} />
           <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)', lineHeight: 1.8 }}>

@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distribution for Circular Commerce Platform - edge proxy for API + static frontend
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: S3 bucket for frontend static assets
+    Default: circular-commerce-frontend
+
+  ALBDomainName:
+    Type: String
+    Description: Elastic Beanstalk ALB domain (e.g., your-env.ap-south-2.elasticbeanstalk.com)
+
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN for custom domain (optional)
+    Default: ''
+
+Conditions:
+  HasCertificate: !Not [!Equals [!Ref CertificateArn, '']]
+
+Resources:
+  # Cache policy for public marketplace endpoints (30s TTL, include query strings)
+  MarketplaceCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: CircularCommerce-MarketplaceCache
+        DefaultTTL: 30
+        MaxTTL: 60
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: all
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+
+  # Origin request policy for API (forward auth header + query strings)
+  ApiOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: CircularCommerce-ApiOriginRequest
+        CookiesConfig:
+          CookieBehavior: none
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers:
+            - Authorization
+            - Content-Type
+            - X-Forwarded-For
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        DefaultRootObject: index.html
+
+        Origins:
+          # S3 origin for frontend static assets
+          - Id: S3Origin
+            DomainName: !Sub '${S3BucketName}.s3.amazonaws.com'
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+
+          # ALB origin for API requests
+          - Id: ALBOrigin
+            DomainName: !Ref ALBDomainName
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginReadTimeout: 30
+              OriginKeepaliveTimeout: 5
+
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          Compress: true
+
+        CacheBehaviors:
+          # Public marketplace endpoints — cached at edge (30s)
+          - PathPattern: /api/marketplace/*
+            TargetOriginId: ALBOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, DELETE, PATCH]
+            CachedMethods: [GET, HEAD]
+            CachePolicyId: !Ref MarketplaceCachePolicy
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+            Compress: true
+
+          # Health endpoint — short cache
+          - PathPattern: /health
+            TargetOriginId: ALBOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD]
+            CachedMethods: [GET, HEAD]
+            CachePolicyId: !Ref MarketplaceCachePolicy
+            Compress: true
+
+          # All other API endpoints — no caching, pass through
+          - PathPattern: /api/*
+            TargetOriginId: ALBOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, DELETE, PATCH]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # CachingDisabled
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+            Compress: true
+
+        # Serve index.html for SPA routes (React Router)
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+
+Outputs:
+  DistributionId:
+    Value: !Ref CloudFrontDistribution
+  DistributionDomain:
+    Value: !GetAtt CloudFrontDistribution.DomainName

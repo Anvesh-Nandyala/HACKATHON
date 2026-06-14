@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import RescueRecommendations from '../components/RescueRecommendations';
+import RefurbishedRecommendations from '../components/RefurbishedRecommendations';
 
 const FEATURED_PRODUCTS = [
   { id: 1, name: 'Apple iPhone 15 Pro', price: 999, originalPrice: 1099, category: 'Electronics', rating: 4.7, reviews: 2341 },
@@ -152,6 +154,10 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* AI-powered personalized recommendations */}
+      <RescueRecommendations />
+      <RefurbishedRecommendations />
 
       <div className="section-header">
         <h2>Today's Deals</h2>

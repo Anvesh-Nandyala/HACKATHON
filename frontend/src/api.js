@@ -1,4 +1,4 @@
-const API_ROOT = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_ROOT = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const API_BASE = `${API_ROOT.replace(/\/+$/, '').replace(/\/api$/, '')}/api`;
 
 function getToken() {
@@ -21,7 +21,7 @@ async function request(path, options = {}) {
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json')
     ? await res.json()
-    : { error: 'Backend API is not responding. Start the backend server on port 3000 and try again.' };
+    : { error: 'Backend API is not responding. Start the backend server on port 8080 and try again.' };
 
   if (!res.ok) {
     if (res.status === 401) {
@@ -85,6 +85,8 @@ export const api = {
   getMarketStats: () => request('/marketplace/stats'),
   getBatchStatus: () => request('/marketplace/batch-status'),
   getProductDetail: (id) => request(`/marketplace/product/${id}`),
+  getRescueRecommendations: () => request('/recommendations/rescue'),
+  getRefurbishedRecommendations: () => request('/recommendations/refurbished'),
 
   // Transactions
   reserveProduct: (data) => request('/transactions/reserve', { method: 'POST', body: JSON.stringify(data) }),

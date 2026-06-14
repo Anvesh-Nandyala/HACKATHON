@@ -3,6 +3,7 @@ const { ReservationSchema } = require('../validators/schemas');
 const { reserveProduct } = require('../services/marketplace');
 const { awardCredits } = require('../services/credits');
 const { store } = require('../db/store');
+const { invalidateOnProductChange } = require('../services/cacheInvalidation');
 
 const router = express.Router();
 
@@ -133,6 +134,7 @@ router.post('/:transactionId/verify-pickup', async (req, res, next) => {
     if (product) {
       product.status = 'sold';
       await store.saveProduct(product);
+      await invalidateOnProductChange(product);
     }
 
     const sellerCredits = await awardCredits(transaction.sellerId, {
@@ -191,6 +193,7 @@ router.post('/:transactionId/complete', async (req, res, next) => {
     if (product) {
       product.status = 'sold';
       await store.saveProduct(product);
+      await invalidateOnProductChange(product);
     }
 
     const sellerCredits = await awardCredits(transaction.sellerId, {
@@ -250,6 +253,7 @@ router.post('/:transactionId/cancel', async (req, res, next) => {
     if (product) {
       product.status = 'listed';
       await store.saveProduct(product);
+      await invalidateOnProductChange(product);
     }
 
     res.json({ transactionId, status: 'cancelled' });

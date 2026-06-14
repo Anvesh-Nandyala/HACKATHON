@@ -15,6 +15,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { api } from './api';
+import OfflineBanner from './components/OfflineBanner';
 
 const CATEGORIES = [
   'Electronics', 'Clothing', 'Furniture', 'Books', 'Toys',
@@ -116,6 +117,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <OfflineBanner />
       <header className="header">
         <div className="header-top">
           <Link to="/" className="header-logo">ReCircle</Link>
