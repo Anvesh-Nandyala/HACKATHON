@@ -12,3 +12,5 @@ frontend/dist/
 cloudfront-*.json
 last 100 logs.txt
 *.log
+backend/.elasticbeanstalk/app_versions/
+backend/.elasticbeanstalk/logs/
