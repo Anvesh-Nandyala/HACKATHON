@@ -88,6 +88,8 @@ export const api = {
   getProductDetail: (id) => request(`/marketplace/product/${id}`),
   getRescueRecommendations: () => request('/recommendations/rescue'),
   getRefurbishedRecommendations: () => request('/recommendations/refurbished'),
+  checkReturnRisk: (data) => request('/compatibility/return-risk', { method: 'POST', body: JSON.stringify(data) }),
+  checkCompatibility: (data) => request('/compatibility/check', { method: 'POST', body: JSON.stringify(data) }),
 
   // Transactions
   reserveProduct: (data) => request('/transactions/reserve', { method: 'POST', body: JSON.stringify(data) }),
@@ -96,6 +98,7 @@ export const api = {
   verifyPickup: (id, otp) => request(`/transactions/${id}/verify-pickup`, { method: 'POST', body: JSON.stringify({ otp }) }),
   completeTransaction: (id) => request(`/transactions/${id}/complete`, { method: 'POST' }),
   cancelTransaction: (id) => request(`/transactions/${id}/cancel`, { method: 'POST' }),
+  requestReturn: (id, data) => request(`/transactions/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Credits
   getBalance: () => request('/credits/balance'),
@@ -119,5 +122,6 @@ export const api = {
   getAdminMediaUrl: (id, kind, index = 0) => requestBlob(`/admin/products/${id}/media/${kind}/${index}`),
   updateAdminProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   markAdminProductReturned: (id, data) => request(`/admin/products/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
+  resolveAdminReturn: (id, data) => request(`/admin/products/${id}/return-disposition`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAdminProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),
 };

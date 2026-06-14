@@ -4,6 +4,7 @@ const { reserveProduct } = require('../services/marketplace');
 const { awardCredits } = require('../services/credits');
 const { store } = require('../db/store');
 const { invalidateOnProductChange } = require('../services/cacheInvalidation');
+const { inspectReturnedProduct } = require('../services/returnInspection');
 
 const router = express.Router();
 
@@ -21,6 +22,18 @@ function formatPickupAddress({ transaction, product }) {
   }
 
   return 'Seller pickup address not provided';
+}
+
+function returnWindow(transaction) {
+  const completedAt = transaction.completedAt || transaction.pickupVerifiedAt;
+  if (!completedAt) return { eligible: false, deadline: null, daysLeft: 0 };
+  const deadlineMs = new Date(completedAt).getTime() + 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  return {
+    eligible: now <= deadlineMs && transaction.status === 'completed',
+    deadline: new Date(deadlineMs).toISOString(),
+    daysLeft: Math.max(0, Math.ceil((deadlineMs - now) / (24 * 60 * 60 * 1000))),
+  };
 }
 
 /**
@@ -80,6 +93,8 @@ router.get('/', async (req, res, next) => {
         pickupLocation: transaction.pickupLocation,
         createdAt: transaction.createdAt,
         completedAt: transaction.completedAt,
+        returnWindow: returnWindow(transaction),
+        returnDetails: transaction.returnDetails,
         role: isBuyer ? 'buyer' : 'seller',
         buyerId: transaction.buyerId,
         sellerId: transaction.sellerId,
@@ -309,7 +324,98 @@ router.get('/:transactionId', async (req, res, next) => {
       pickupOtp: isBuyer && transaction.status !== 'completed' ? transaction.pickupOtp : undefined,
       createdAt: transaction.createdAt,
       completedAt: transaction.completedAt,
+      returnWindow: returnWindow(transaction),
+      returnDetails: transaction.returnDetails,
       creditsAwarded: transaction.creditsAwarded,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/transactions/:transactionId/return
+ * Buyer can request return within 7 days after completed pickup.
+ */
+router.post('/:transactionId/return', async (req, res, next) => {
+  try {
+    const { transactionId } = req.params;
+    const { reason, damageLevel = 'minor', notes = '' } = req.body;
+    const transaction = await store.getTransaction(transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    if (transaction.buyerId !== req.user.userId) {
+      return res.status(403).json({ error: 'Only the buyer can return this product' });
+    }
+
+    const window = returnWindow(transaction);
+    if (!window.eligible) {
+      return res.status(400).json({ error: 'Return window is closed or transaction is not completed' });
+    }
+
+    if (!reason || String(reason).trim().length < 5) {
+      return res.status(400).json({ error: 'Return reason is required' });
+    }
+
+    const product = await store.getProduct(transaction.productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const returnDetails = {
+      reason: String(reason).trim(),
+      damageLevel,
+      notes: String(notes || '').trim(),
+      requestedAt: new Date().toISOString(),
+    };
+
+    const inspection = await inspectReturnedProduct(product, returnDetails);
+
+    transaction.status = 'return_requested';
+    transaction.returnDetails = {
+      ...returnDetails,
+      inspection,
+    };
+    await store.saveTransaction(transaction);
+
+    product.status = inspection.disposition === 'refurbish'
+      ? 'listed'
+      : inspection.disposition === 'recycle'
+        ? 'recycled'
+        : 'return_requested';
+    if (inspection.disposition === 'refurbish') {
+      product.condition = 'refurbished';
+      product.refurbishedAt = returnDetails.requestedAt;
+      product.refurbishedTag = 'Refurbished';
+      product.routingDecision = {
+        ...(product.routingDecision || {}),
+        destination: 'refurbish',
+        reasoning: inspection.recommendation,
+      };
+    }
+    if (inspection.disposition === 'recycle') {
+      product.routingDecision = {
+        ...(product.routingDecision || {}),
+        destination: 'recycle',
+        reasoning: inspection.recommendation,
+      };
+    }
+    product.returnReason = returnDetails.reason;
+    product.returnedAt = returnDetails.requestedAt;
+    product.returnInspection = inspection;
+    product.returnTransactionId = transaction.transactionId;
+
+    await store.saveProduct(product);
+    await invalidateOnProductChange(product);
+
+    res.json({
+      transactionId,
+      status: transaction.status,
+      productStatus: product.status,
+      inspection,
     });
   } catch (err) {
     next(err);

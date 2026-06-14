@@ -4,6 +4,7 @@ import { api } from '../api';
 import AIInspectionReport from '../components/AIInspectionReport';
 import CompatibilityCheck from '../components/CompatibilityCheck';
 import GreenImpactModal from '../components/GreenImpactModal';
+import ReturnRiskCheck from '../components/ReturnRiskCheck';
 
 function productName(product) {
   return product.name || [product.brand, product.model].filter(Boolean).join(' ') || product.category || 'Product';
@@ -204,6 +205,9 @@ export default function ProductDetail({ user }) {
 
         <div>
           <h1 className="detail-title">{name}</h1>
+          {product.condition === 'refurbished' && (
+            <div className="recommendation-badge certified" style={{ marginBottom: '0.75rem' }}>Refurbished</div>
+          )}
           <div className="product-card-rating">
             <span>{product.avgRating || 4.5} rating</span>
             <span style={{ color: 'var(--blue)' }}>{product.reviewCount || 0} reviews</span>
@@ -251,6 +255,10 @@ export default function ProductDetail({ user }) {
           <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
             {isDemo ? 'Ships from ReCircle' : 'Self-pickup / No shipping fees / Meet locally'}
           </p>
+
+          {!isDemo && product?.productId && product.status === 'listed' && (
+            <ReturnRiskCheck productId={product.productId} />
+          )}
 
           {isAvailable ? (
             isDemo ? (

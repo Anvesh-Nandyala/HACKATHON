@@ -194,6 +194,7 @@ export default function Nearby({ user, buyerLocation }) {
               tabIndex={0}
               onKeyDown={event => event.key === 'Enter' && openProduct(product)}
             >
+              {product.condition === 'refurbished' && <span className="product-card-badge">Refurbished</span>}
               <span className="product-card-distance">{product.distance} km away</span>
               <div className="product-card-image product-card-text-image">{product.category}</div>
               <div className="product-card-title">{productName(product)}</div>

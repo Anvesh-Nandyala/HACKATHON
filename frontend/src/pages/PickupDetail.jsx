@@ -28,15 +28,37 @@ export default function PickupDetail() {
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [returnForm, setReturnForm] = useState({ reason: '', damageLevel: 'minor', notes: '' });
+  const [working, setWorking] = useState(false);
 
-  useEffect(() => {
+  const loadTransaction = () => {
     setLoading(true);
     setMessage('');
     api.getTransaction(transactionId)
       .then(setTransaction)
       .catch(err => setMessage(err.message || 'Could not load pickup details.'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadTransaction();
   }, [transactionId]);
+
+  const submitReturn = async (event) => {
+    event.preventDefault();
+    setWorking(true);
+    setMessage('');
+    try {
+      const result = await api.requestReturn(transaction.transactionId, returnForm);
+      setMessage(`Return requested. AI inspection result: ${result.inspection.disposition}.`);
+      setReturnForm({ reason: '', damageLevel: 'minor', notes: '' });
+      loadTransaction();
+    } catch (err) {
+      setMessage(err.message || 'Could not request return.');
+    } finally {
+      setWorking(false);
+    }
+  };
 
   if (loading) return <p>Loading pickup details...</p>;
 
@@ -94,6 +116,51 @@ export default function PickupDetail() {
             <div className="otp-box" style={{ marginTop: '1.25rem' }}>
               <span>Show this OTP to the seller</span>
               <strong>{transaction.pickupOtp}</strong>
+            </div>
+          )}
+
+          {transaction.role === 'buyer' && transaction.status === 'completed' && transaction.returnWindow?.eligible && (
+            <form className="return-form" onSubmit={submitReturn}>
+              <h3>Return Product</h3>
+              <p className="muted-text">Return is available for {transaction.returnWindow.daysLeft} more days. AI will inspect the return and decide refurbish, recycle, or admin review.</p>
+              <div className="form-group">
+                <label>Return Reason</label>
+                <input
+                  value={returnForm.reason}
+                  onChange={event => setReturnForm({ ...returnForm, reason: event.target.value })}
+                  placeholder="Why are you returning this product?"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Damage Level</label>
+                <select value={returnForm.damageLevel} onChange={event => setReturnForm({ ...returnForm, damageLevel: event.target.value })}>
+                  <option value="minor">Minor damage</option>
+                  <option value="moderate">Significant damage</option>
+                  <option value="severe">More than significant</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Notes</label>
+                <textarea
+                  rows="2"
+                  value={returnForm.notes}
+                  onChange={event => setReturnForm({ ...returnForm, notes: event.target.value })}
+                  placeholder="Optional extra details"
+                />
+              </div>
+              <button className="btn btn-primary" disabled={working}>
+                {working ? 'Inspecting...' : 'Return Product'}
+              </button>
+            </form>
+          )}
+
+          {transaction.returnDetails?.inspection && (
+            <div className="return-inspection-card">
+              <h3>AI Return Inspection</h3>
+              <div>Decision: <strong>{transaction.returnDetails.inspection.disposition}</strong></div>
+              <div>Damage: <strong>{transaction.returnDetails.inspection.severity}</strong></div>
+              <p>{transaction.returnDetails.inspection.recommendation}</p>
             </div>
           )}
 

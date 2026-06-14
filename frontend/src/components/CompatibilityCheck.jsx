@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { api } from '../api';
 
 /**
  * Predictive Return Prevention — AI Compatibility Check widget.
@@ -15,16 +16,7 @@ export default function CompatibilityCheck({ productId }) {
     setResult(null);
 
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/compatibility/check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify({ productId, userQuery: query.trim() }),
-      });
-      const data = await res.json();
+      const data = await api.checkCompatibility({ productId, userQuery: query.trim() });
       setResult(data);
     } catch (err) {
       setResult({ compatible: null, explanation: 'Could not analyze. Try again.', warnings: [] });
