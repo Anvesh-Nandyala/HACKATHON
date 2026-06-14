@@ -188,6 +188,77 @@ function normalizeAssessment(assessment) {
   };
 }
 
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+function isUnknown(value) {
+  const normalized = normalizeText(value);
+  return !normalized || normalized === 'unknown' || normalized === 'na' || normalized === 'none';
+}
+
+function textMatches(declared, detected) {
+  const left = normalizeText(declared);
+  const right = normalizeText(detected);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
+}
+
+function categoryMatches(declaredCategory, detectedCategory) {
+  if (isUnknown(detectedCategory)) return false;
+  if (textMatches(declaredCategory, detectedCategory)) return true;
+
+  const detected = normalizeText(detectedCategory);
+  const categoryAliases = {
+    electronics: ['phone', 'smartphone', 'mobile', 'laptop', 'tablet', 'earbuds', 'headphones', 'camera', 'charger', 'device'],
+    clothing: ['shirt', 'tshirt', 'jeans', 'pants', 'dress', 'shoes', 'sneakers', 'jacket', 'apparel'],
+    furniture: ['table', 'chair', 'desk', 'sofa', 'bed', 'cabinet', 'shelf'],
+    books: ['book', 'novel', 'textbook'],
+    toys: ['toy', 'lego', 'game'],
+    appliances: ['appliance', 'vacuum', 'mixer', 'oven', 'fridge', 'washingmachine'],
+    sports: ['sports', 'fitness', 'cycle', 'bicycle', 'bat', 'ball', 'racket'],
+  };
+
+  return (categoryAliases[declaredCategory] || []).some(alias => detected.includes(alias));
+}
+
+function enforceDeclaredProductMatch(assessment, declaredProduct) {
+  const declaredCategory = declaredProduct.category;
+  const declaredBrand = declaredProduct.brand;
+  const declaredModel = declaredProduct.model;
+
+  const failures = [];
+
+  if (!assessment.declaredProductMatch) {
+    failures.push(assessment.mismatchReason || 'AI marked uploaded media as not matching the product details.');
+  }
+
+  if (!categoryMatches(declaredCategory, assessment.detectedCategory)) {
+    failures.push(`Detected category "${assessment.detectedCategory || 'unknown'}" does not match declared category "${declaredCategory}".`);
+  }
+
+  if (!isUnknown(declaredBrand) && !textMatches(declaredBrand, assessment.detectedBrand)) {
+    failures.push(`Detected brand "${assessment.detectedBrand || 'unknown'}" does not match declared brand "${declaredBrand}".`);
+  }
+
+  if (!isUnknown(declaredModel) && !textMatches(declaredModel, assessment.detectedModel)) {
+    failures.push(`Detected model "${assessment.detectedModel || 'unknown'}" does not match declared model "${declaredModel}".`);
+  }
+
+  if (failures.length === 0) {
+    return assessment;
+  }
+
+  return {
+    ...assessment,
+    declaredProductMatch: false,
+    mismatchReason: failures.join(' '),
+  };
+}
+
 async function assessWithBedrock({ images, video, declaredProduct }) {
   const content = [
     {
@@ -256,7 +327,8 @@ Strict matching rules:
   }));
 
   const text = response.output?.message?.content?.[0]?.text || '{}';
-  return normalizeAssessment(extractJson(text));
+  const assessment = normalizeAssessment(extractJson(text));
+  return enforceDeclaredProductMatch(assessment, declaredProduct);
 }
 
 async function verifyProduct(request) {
@@ -322,4 +394,10 @@ async function verifyProduct(request) {
 
 module.exports = {
   verifyProduct,
+  _private: {
+    normalizeAssessment,
+    enforceDeclaredProductMatch,
+    categoryMatches,
+    textMatches,
+  },
 };
