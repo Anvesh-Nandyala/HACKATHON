@@ -679,6 +679,110 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   padding: 0.75rem 1rem;
 }
 
+.status-message-error {
+  border-left-color: var(--red);
+  color: var(--red);
+}
+
+.muted-text {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 1rem;
+}
+
+.notifications-layout {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(280px, 1fr) 360px;
+  margin-bottom: 1rem;
+}
+
+.notification-form {
+  margin-top: 1rem;
+}
+
+.form-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-row .form-group {
+  margin-bottom: 1rem;
+}
+
+.mode-control {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.mode-control button {
+  background: white;
+  border: none;
+  border-right: 1px solid var(--gray-200);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.75rem;
+}
+
+.mode-control button:last-child {
+  border-right: none;
+}
+
+.mode-control button.active {
+  background: var(--primary-light);
+  color: white;
+}
+
+.notification-mode-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.notification-mode-card span {
+  color: var(--gray-500);
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.notification-list-card {
+  margin-top: 1rem;
+}
+
+.subscription-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  margin-top: 1rem;
+}
+
+.subscription-card {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.subscription-card strong,
+.subscription-card span {
+  display: block;
+}
+
+.subscription-card span,
+.subscription-meta {
+  color: var(--gray-500);
+  font-size: 0.82rem;
+}
+
 .simple-hero-mark {
   border: 1px solid rgba(255,255,255,0.5);
   border-radius: var(--radius);
@@ -1277,6 +1381,7 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   .checkout-summary { position: static; }
   .sell-layout { grid-template-columns: 1fr; }
   .pickup-detail-layout { grid-template-columns: 1fr; }
+  .notifications-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
@@ -1285,4 +1390,5 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   .info-strip { grid-template-columns: 1fr 1fr; }
   .checkout-item { grid-template-columns: 80px 1fr; }
   .checkout-item-price { grid-column: 2; }
+  .form-row { grid-template-columns: 1fr; }
 }

@@ -12,6 +12,7 @@ import PickupDetail from './pages/PickupDetail';
 import MyProducts from './pages/MyProducts';
 import Credits from './pages/Credits';
 import AdminDashboard from './pages/AdminDashboard';
+import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { api } from './api';
@@ -160,6 +161,10 @@ export default function App() {
                   <span>&nbsp;</span>
                   <strong>Pickups</strong>
                 </Link>
+                <Link to="/notifications" className="header-nav-item">
+                  <span>Product</span>
+                  <strong>Alerts</strong>
+                </Link>
                 <Link to="/submit" className="header-nav-item">
                   <span>Sell and</span>
                   <strong>List Product</strong>
@@ -199,6 +204,7 @@ export default function App() {
               <NavLink key={c} to={`/marketplace?category=${toCategoryValue(c)}`}>{c}</NavLink>
             ))}
             {user && <NavLink to="/pickups">Pickups</NavLink>}
+            {user && <NavLink to="/notifications">Alerts</NavLink>}
             {user && <NavLink to="/submit" style={{ color: 'var(--accent)' }}>Sell</NavLink>}
             {user?.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
           </div>
@@ -214,6 +220,7 @@ export default function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/pickups" element={user ? <Pickups /> : <Navigate to="/login" replace />} />
           <Route path="/pickups/:transactionId" element={user ? <PickupDetail /> : <Navigate to="/login" replace />} />
+          <Route path="/notifications" element={user ? <Notifications /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
           <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={handleLogin} />} />
           <Route path="/submit" element={user ? <SubmitProduct /> : <Navigate to="/login" replace />} />

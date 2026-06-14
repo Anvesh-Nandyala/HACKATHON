@@ -101,6 +101,13 @@ export const api = {
   getHistory: () => request('/credits/history'),
   redeemCredits: (amount, rewardType) => request('/credits/redeem', { method: 'POST', body: JSON.stringify({ amount, rewardType }) }),
 
+  // Notifications
+  getNotificationSubscriptions: () => request('/notifications/subscriptions'),
+  createNotificationSubscription: (data) => request('/notifications/subscriptions', { method: 'POST', body: JSON.stringify(data) }),
+  deleteNotificationSubscription: (id) => request(`/notifications/subscriptions/${id}`, { method: 'DELETE' }),
+  getNotificationMode: () => request('/notifications/mode'),
+  updateNotificationMode: (mode) => request('/notifications/mode', { method: 'PUT', body: JSON.stringify({ mode }) }),
+
   // Admin
   getAdminStats: () => request('/admin/stats'),
   getAdminProducts: (params = {}) => {
