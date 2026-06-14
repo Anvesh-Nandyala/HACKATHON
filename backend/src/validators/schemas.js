@@ -23,7 +23,7 @@ const ProductSubmissionSchema = z.object({
   purchaseDate: z.string().min(1).max(30),
   imageKeys: z.array(z.string()).min(2).max(10),
   videoKey: z.string().min(1),
-  location: GeoPointSchema,
+  location: GeoPointSchema.optional(),
   pickupAddress: z.string().min(1).max(500),
   description: z.string().max(2000).optional(),
 });

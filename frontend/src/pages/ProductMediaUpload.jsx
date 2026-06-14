@@ -120,7 +120,6 @@ export default function ProductMediaUpload({ onCreditUpdate }) {
         purchaseDate: draft.purchaseDate,
         imageKeys: uploadedImages,
         videoKey: uploadedVideo.key,
-        location: { latitude: 40.7128, longitude: -74.0060 },
         pickupAddress: draft.pickupAddress,
         description: draft.description || undefined,
       });
@@ -159,6 +158,7 @@ export default function ProductMediaUpload({ onCreditUpdate }) {
             <div><strong>Purchase Date</strong><br />{draft.purchaseDate}</div>
             <div><strong>Original Price</strong><br />${draft.originalPrice}</div>
             <div><strong>Age</strong><br />{draft.ageMonths} months</div>
+            <div><strong>Pickup Address</strong><br />{draft.pickupAddress}</div>
           </div>
 
           <form onSubmit={handleSubmit}>
