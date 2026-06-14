@@ -1,5 +1,6 @@
 const ngeohash = require('ngeohash');
 const { store } = require('../db/store');
+const { invalidateOnProductChange } = require('./cacheInvalidation');
 
 /**
  * Hyperlocal Marketplace Service.
@@ -181,6 +182,9 @@ async function reserveProduct(productId, buyerId, agreedPrice, pickupWindow) {
   // Update product status
   product.status = 'reserved';
   await store.saveProduct(product);
+
+  // Invalidate cache for this product
+  await invalidateOnProductChange(product);
 
   // Create transaction
   const { v4: uuidv4 } = require('uuid');

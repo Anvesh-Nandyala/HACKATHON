@@ -216,6 +216,103 @@ const store = {
       date: today,
     });
   },
+
+  // ─── Review operations ───
+
+  async saveReview(review) {
+    const item = {
+      PK: `REVIEW#${review.reviewId}`,
+      SK: 'METADATA',
+      GSI1PK: `USER#${review.revieweeId}`,
+      GSI1SK: `REVIEW#${review.createdAt}`,
+      GSI2PK: `TXN#${review.transactionId}`,
+      GSI2SK: `REVIEW#${review.reviewerId}`,
+      ...review,
+    };
+    await putItem(item);
+  },
+
+  async getReviewsForUser(userId, limit = 10) {
+    const items = await queryGSI('GSI1', 'GSI1PK', `USER#${userId}`, 'REVIEW#');
+    return items
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  },
+
+  async getReviewsForTransaction(transactionId) {
+    return queryGSI('GSI2', 'GSI2PK', `TXN#${transactionId}`, 'REVIEW#');
+  },
+
+  async hasUserReviewed(userId, transactionId) {
+    const reviews = await queryGSI('GSI2', 'GSI2PK', `TXN#${transactionId}`, `REVIEW#${userId}`);
+    return reviews.length > 0;
+  },
+
+  // ─── Subscription operations ───
+
+  async saveSubscription(subscription) {
+    const ngeohash = require('ngeohash');
+    const geohash4 = ngeohash.encode(subscription.location.latitude, subscription.location.longitude, 4);
+    const item = {
+      PK: `USER#${subscription.userId}`,
+      SK: `SUBSCRIPTION#${subscription.subscriptionId}`,
+      GSI1PK: `GEO#${geohash4}`,
+      GSI1SK: `SUB#${subscription.category}#${subscription.priceRange?.min || 0}`,
+      ...subscription,
+      geohash4,
+    };
+    await putItem(item);
+  },
+
+  async getSubscriptions(userId) {
+    return queryByPK(`USER#${userId}`, 'SUBSCRIPTION#');
+  },
+
+  async deleteSubscription(userId, subscriptionId) {
+    const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+    const { docClient, TABLE_NAME } = require('./dynamodb');
+    await docClient.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: `SUBSCRIPTION#${subscriptionId}` },
+    }));
+  },
+
+  async getSubscriptionsByGeohash(geohash4) {
+    return queryGSI('GSI1', 'GSI1PK', `GEO#${geohash4}`, 'SUB#');
+  },
+
+  // ─── WebSocket connection operations ───
+
+  async saveWebSocketConnection(conn) {
+    const item = {
+      PK: `WSCONN#${conn.connectionId}`,
+      SK: 'METADATA',
+      GSI2PK: `USER#${conn.userId}`,
+      GSI2SK: `WSCONN#${conn.connectedAt}`,
+      ...conn,
+    };
+    await putItem(item);
+  },
+
+  async deleteWebSocketConnection(connectionId) {
+    const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+    const { docClient, TABLE_NAME } = require('./dynamodb');
+    await docClient.send(new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `WSCONN#${connectionId}`, SK: 'METADATA' },
+    }));
+  },
+
+  async getConnectionsByUser(userId) {
+    return queryGSI('GSI2', 'GSI2PK', `USER#${userId}`, 'WSCONN#');
+  },
+
+  // ─── User reputation helpers ───
+
+  async getCompletedTransactionCount(userId) {
+    const txns = await this.getTransactionsForUser(userId);
+    return txns.filter(t => t.status === 'completed').length;
+  },
 };
 
 module.exports = { store };

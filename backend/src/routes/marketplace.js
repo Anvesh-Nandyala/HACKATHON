@@ -1,13 +1,43 @@
 const express = require('express');
+const crypto = require('crypto');
+const ngeohash = require('ngeohash');
 const { DiscoveryQuerySchema } = require('../validators/schemas');
 const { discoverNearby } = require('../services/marketplace');
 const { optimizeBatchCollection } = require('../services/batchCollection');
 const { store } = require('../db/store');
+const cache = require('../services/cache');
+const { getReviewsForUser } = require('../services/reviews');
+const reputation = require('../services/reputation');
 
 const router = express.Router();
 
+// ─── Cache TTLs ───
+const NEARBY_CACHE_TTL = 60;     // 60 seconds
+const STATS_CACHE_TTL = 120;     // 120 seconds
+const PRODUCT_CACHE_TTL = 180;   // 180 seconds
+
+/**
+ * Build a deterministic cache key for marketplace nearby queries.
+ * Pattern: marketplace:{geohash4}:{sha256(filters)}
+ */
+function buildNearbyCacheKey(query) {
+  const geohash4 = ngeohash.encode(query.latitude, query.longitude, 4);
+  const filters = JSON.stringify({
+    radiusKm: query.radiusKm,
+    category: query.category,
+    priceRange: query.priceRange,
+    minCondition: query.minCondition,
+    sortBy: query.sortBy,
+    limit: query.limit,
+    cursor: query.cursor,
+  });
+  const filtersHash = crypto.createHash('sha256').update(filters).digest('hex').substring(0, 12);
+  return `marketplace:${geohash4}:${filtersHash}`;
+}
+
 /**
  * GET /api/marketplace/nearby
+ * Cached with 60s TTL. Returns x-cache header.
  */
 router.get('/nearby', async (req, res, next) => {
   try {
@@ -25,7 +55,26 @@ router.get('/nearby', async (req, res, next) => {
       cursor: req.query.cursor || undefined,
     });
 
+    // Check cache
+    const cacheKey = buildNearbyCacheKey(query);
+    const cached = await cache.get(cacheKey);
+
+    if (cached) {
+      const ttlRemaining = await cache.getTTL(cacheKey);
+      res.set('x-cache', 'HIT');
+      res.set('x-cache-ttl', String(ttlRemaining));
+      res.set('Cache-Control', `public, max-age=30`);
+      return res.json(cached);
+    }
+
+    // Cache miss — query DynamoDB
     const result = await discoverNearby(query);
+
+    // Store in cache (even empty results)
+    await cache.set(cacheKey, result, NEARBY_CACHE_TTL);
+
+    res.set('x-cache', 'MISS');
+    res.set('Cache-Control', `public, max-age=30`);
     res.json(result);
   } catch (err) {
     next(err);
@@ -34,22 +83,40 @@ router.get('/nearby', async (req, res, next) => {
 
 /**
  * GET /api/marketplace/stats
+ * Cached with 120s TTL.
  */
 router.get('/stats', async (req, res, next) => {
   try {
+    const cacheKey = 'marketplace:stats';
+    const cached = await cache.get(cacheKey);
+
+    if (cached) {
+      const ttlRemaining = await cache.getTTL(cacheKey);
+      res.set('x-cache', 'HIT');
+      res.set('x-cache-ttl', String(ttlRemaining));
+      res.set('Cache-Control', `public, max-age=30`);
+      return res.json(cached);
+    }
+
     const listed = await store.getListedProducts();
     const categories = {};
     listed.forEach(p => {
       categories[p.category] = (categories[p.category] || 0) + 1;
     });
 
-    res.json({
+    const result = {
       totalListed: listed.length,
       byCategory: categories,
       avgPrice: listed.length
         ? Math.round(listed.reduce((s, p) => s + (p.priceEstimate?.recommendedPrice || 0), 0) / listed.length)
         : 0,
-    });
+    };
+
+    await cache.set(cacheKey, result, STATS_CACHE_TTL);
+
+    res.set('x-cache', 'MISS');
+    res.set('Cache-Control', `public, max-age=30`);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -72,21 +139,47 @@ router.get('/batch-status', async (req, res, next) => {
 
 /**
  * GET /api/marketplace/product/:productId
- * Public — fetch a single product with reviews for the detail page.
+ * Cached with 180s TTL. Public — fetch a single product with reviews.
  */
 router.get('/product/:productId', async (req, res, next) => {
   try {
-    const product = await store.getProduct(req.params.productId);
+    const productId = req.params.productId;
+    const cacheKey = `product:${productId}`;
+
+    // Check cache
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      const ttlRemaining = await cache.getTTL(cacheKey);
+      res.set('x-cache', 'HIT');
+      res.set('x-cache-ttl', String(ttlRemaining));
+      res.set('Cache-Control', `public, max-age=30`);
+      return res.json(cached);
+    }
+
+    // Cache miss
+    const product = await store.getProduct(productId);
 
     if (!product || product.status === 'pending_verification') {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Generate deterministic mock reviews based on productId
-    const reviews = generateReviews(product);
-    const avgRating = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+    // Fetch real seller reviews (fallback to empty if service unavailable)
+    let reviews = [];
+    let avgRating = 0;
+    let reviewCount = 0;
+    let reputationScore = 50;
 
-    res.json({
+    try {
+      reviews = await getReviewsForUser(product.userId, { limit: 10 });
+      const rep = await reputation.getScore(product.userId);
+      avgRating = rep.avgRating || 0;
+      reviewCount = rep.reviewCount || 0;
+      reputationScore = rep.reputationScore ?? 50;
+    } catch (err) {
+      console.warn(`[Marketplace] Reviews unavailable for seller ${product.userId}: ${err.message}`);
+    }
+
+    const result = {
       productId: product.productId,
       category: product.category,
       brand: product.brand,
@@ -114,40 +207,27 @@ router.get('/product/:productId', async (req, res, next) => {
       sellerId: product.userId,
       status: product.status,
       createdAt: product.createdAt,
-      reviews,
-      avgRating: Math.round(avgRating * 10) / 10,
-      reviewCount: reviews.length,
-    });
+      reviews: reviews.map(r => ({
+        reviewerId: r.reviewerId,
+        rating: r.rating,
+        title: r.title,
+        text: r.text,
+        createdAt: r.createdAt,
+      })),
+      avgRating,
+      reviewCount,
+      reputationScore,
+    };
+
+    // Cache the full response
+    await cache.set(cacheKey, result, PRODUCT_CACHE_TTL);
+
+    res.set('x-cache', 'MISS');
+    res.set('Cache-Control', `public, max-age=30`);
+    res.json(result);
   } catch (err) {
     next(err);
   }
 });
-
-// ─── Mock review generator (deterministic per product) ───
-const REVIEW_TEMPLATES = [
-  { name: 'Sarah M.', rating: 5, title: 'Great condition, as described!', text: 'Picked it up locally, exactly as shown in photos. The AI grade was spot on. Saved a ton vs buying new.' },
-  { name: 'James K.', rating: 4, title: 'Good value', text: 'Minor wear but works perfectly. Seller was friendly and pickup was quick. Would buy again.' },
-  { name: 'Priya R.', rating: 5, title: 'Love buying local & sustainable', text: 'Earned green credits and got a great deal. The condition score gave me confidence before meeting up.' },
-  { name: 'Mike T.', rating: 4, title: 'Solid purchase', text: 'Item matched the description. Self-pickup within 3km made it super convenient.' },
-  { name: 'Elena V.', rating: 5, title: 'Highly recommend', text: 'Verified condition was accurate. Smooth transaction, no shipping wait. This is the future of shopping.' },
-  { name: 'David L.', rating: 3, title: 'Decent, some wear', text: 'A bit more used than I expected but still functional. Fair price for the condition grade.' },
-];
-
-function generateReviews(product) {
-  // Use productId chars to deterministically pick number and selection of reviews
-  const seed = product.productId.charCodeAt(0) + product.productId.charCodeAt(product.productId.length - 1);
-  const count = 2 + (seed % 4); // 2-5 reviews
-  const reviews = [];
-  for (let i = 0; i < count; i++) {
-    const template = REVIEW_TEMPLATES[(seed + i) % REVIEW_TEMPLATES.length];
-    const daysAgo = ((seed + i * 7) % 60) + 1;
-    reviews.push({
-      ...template,
-      verifiedPurchase: true,
-      daysAgo,
-    });
-  }
-  return reviews;
-}
 
 module.exports = router;

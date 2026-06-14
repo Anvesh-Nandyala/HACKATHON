@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
+import { cacheResponse, getCached } from '../services/cacheManager';
+import StaleDataBanner from '../components/StaleDataBanner';
+import RescueRecommendations from '../components/RescueRecommendations';
+import RefurbishedRecommendations from '../components/RefurbishedRecommendations';
 
 function productName(product) {
   return [product.brand, product.model].filter(Boolean).join(' ') || product.category;
@@ -29,6 +33,8 @@ export default function Marketplace({ user }) {
   const [reservingId, setReservingId] = useState(null);
   const [reservedIds, setReservedIds] = useState([]);
   const [searchParams] = useSearchParams();
+  const [isStale, setIsStale] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const [filters, setFilters] = useState({
     latitude: 40.7128,
@@ -42,6 +48,8 @@ export default function Marketplace({ user }) {
   const search = async (nextFilters = filters) => {
     setLoading(true);
     setMessage('');
+    const cacheKey = `marketplace:nearby:${JSON.stringify(nextFilters)}`;
+
     try {
       const params = {
         latitude: nextFilters.latitude,
@@ -60,8 +68,21 @@ export default function Marketplace({ user }) {
       }
       setProducts(items);
       setTotalCount(items.length);
+      setIsStale(false);
+      setLastUpdated(new Date());
+      cacheResponse(cacheKey, items, 60000);
     } catch (err) {
-      setMessage(err.message || 'Could not load products.');
+      // Fallback to cached data
+      const cached = getCached(cacheKey);
+      if (cached && cached.data) {
+        setProducts(cached.data);
+        setTotalCount(cached.data.length);
+        setIsStale(true);
+        setLastUpdated(new Date(cached.cachedAt));
+        setMessage('');
+      } else {
+        setMessage(err.message || 'Could not load products.');
+      }
     } finally {
       setLoading(false);
     }
@@ -176,6 +197,12 @@ export default function Marketplace({ user }) {
           <button className="btn btn-primary" onClick={clearFilters}>Clear Filters</button>
         </div>
       )}
+
+      {isStale && <StaleDataBanner lastUpdated={lastUpdated} onRefresh={() => search(filters)} />}
+
+      <RescueRecommendations />
+
+      <RefurbishedRecommendations />
 
       <div className="product-grid">
         {products.map(product => {

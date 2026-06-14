@@ -2,184 +2,250 @@
 
 ## Introduction
 
-The Circular Commerce Platform is an AI-powered system within Amazon that intelligently routes returned, underused, and discarded products to their most valuable and sustainable destination — Resell, Refurbish, Donate, Recycle, or Exchange. The platform leverages computer vision, large language models, and optimization algorithms to verify product condition, estimate fair pricing, and match products with nearby buyers through a hyperlocal marketplace. Green Credits incentivize sustainable behavior, creating a closed-loop economy where environmental impact is a first-class optimization dimension alongside revenue recovery.
+This feature introduces backend scaling infrastructure to the Circular Commerce Platform. It adds four major capabilities: a Redis caching layer (Amazon ElastiCache) for frequent read operations, message queues (AWS SQS) to offload heavy AI tasks to background workers, real-time notifications (AWS SNS + WebSockets via API Gateway) for interest-matched product alerts, and a user reputation and review system backed by DynamoDB replacing the current mock reviews. All components use Amazon/AWS technologies and integrate with the existing Node.js/Express backend running on Elastic Beanstalk.
 
 ## Glossary
 
-- **Platform**: The Circular Commerce Platform system as a whole
-- **Verification_Service**: The AI-powered service that analyzes uploaded media to assess product condition, detect damage, and authenticate products
-- **Price_Estimation_Service**: The service that determines fair resale value based on condition, market demand, and historical trends
-- **Marketplace_Service**: The hyperlocal marketplace that lists verified products to nearby users and facilitates self-pickup transactions
-- **Routing_Engine**: The AI-powered engine that determines the optimal destination for each product
-- **Credits_Service**: The Green Credits incentive system that rewards users for sustainable actions
-- **Batch_Collection_Service**: The logistics optimization service that consolidates low-value products at local hubs
-- **Product**: An item submitted to the platform for routing to its optimal destination
-- **Condition_Score**: A numeric value from 0-100 representing the assessed physical condition of a product
-- **Grade**: A letter grade (A, B, C, D) derived from the condition score
-- **Recovery_Value**: The net value recovered after subtracting all logistics costs from expected resale value
-- **Geohash**: A spatial encoding used to index products for efficient proximity-based queries
-- **Green_Credits**: Virtual credits awarded to users for sustainable actions on the platform
-- **Tier**: A user rank (bronze, silver, gold, platinum) based on lifetime earned credits
+- **Cache_Service**: The Redis-based caching layer powered by Amazon ElastiCache that stores frequently accessed read data
+- **Queue_Service**: The AWS SQS-based message queue system that offloads heavy AI processing to background workers
+- **Worker**: A background process that consumes messages from the Queue_Service and executes AI tasks asynchronously
+- **Notification_Service**: The system composed of AWS SNS and WebSocket connections (via API Gateway) that delivers real-time alerts to users
+- **Review_Service**: The DynamoDB-backed system that manages user reviews, ratings, and reputation scores for completed transactions
+- **Platform**: The Circular Commerce Platform backend (Node.js/Express on Elastic Beanstalk)
+- **Marketplace_API**: The existing marketplace route handlers that serve nearby product queries and product detail pages
+- **Interest_Subscription**: A user-defined set of criteria (category, price range, location radius) that triggers notifications when matching products are listed
+- **Reputation_Score**: A computed numeric score representing a user's trustworthiness based on completed transactions, reviews received, and platform behavior
+- **Geohash_Query**: A DynamoDB GSI1 query using geohash prefixes to find products within a geographic area
+- **Personalization_Score**: A 0.0–1.0 relevance score computed by AWS Bedrock that indicates how well a matched product fits a specific user's purchase history and preferences
 
 ## Requirements
 
-### Requirement 1: Product Submission and Media Upload
+### Requirement 1: Cache Initialization and Connection
 
-**User Story:** As a seller, I want to submit my product with photos and a video, so that the platform can verify its condition and list it for resale or route it appropriately.
-
-#### Acceptance Criteria
-
-1. WHEN a user submits a product with 2-10 photos and a video under 60 seconds, THE Platform SHALL accept the submission and initiate the verification pipeline
-2. WHEN a user submits a product with fewer than 2 photos or more than 10 photos, THE Platform SHALL reject the submission with a descriptive error message
-3. WHEN a user submits a product without a video, THE Platform SHALL reject the submission with a descriptive error message
-4. WHEN media upload to S3 fails due to a network error, THE Platform SHALL provide a resumable upload URL for retry
-5. WHEN media upload fails due to an invalid format, THE Platform SHALL return an error specifying the accepted media formats
-6. WHEN media is uploaded successfully, THE Platform SHALL scan the media for malware before processing
-7. THE Platform SHALL enforce a maximum of 10 product submissions per user per day
-
-### Requirement 2: AI Product Verification
-
-**User Story:** As a seller, I want the platform to automatically assess my product's condition using AI, so that buyers can trust the product grading without manual inspection.
+**User Story:** As a platform operator, I want the caching layer to initialize on server startup with proper connection management, so that cached data is available immediately and failures are handled gracefully.
 
 #### Acceptance Criteria
 
-1. WHEN a product submission is accepted, THE Verification_Service SHALL analyze the uploaded images using Amazon Rekognition for damage detection, label matching, and text extraction
-2. WHEN image analysis completes, THE Verification_Service SHALL synthesize findings through Amazon Bedrock for holistic condition assessment
-3. WHEN verification completes, THE Verification_Service SHALL produce a condition score in the range 0-100
-4. WHEN the condition score is 90-100, THE Verification_Service SHALL assign Grade A
-5. WHEN the condition score is 70-89, THE Verification_Service SHALL assign Grade B
-6. WHEN the condition score is 40-69, THE Verification_Service SHALL assign Grade C
-7. WHEN the condition score is 0-39, THE Verification_Service SHALL assign Grade D
-8. THE Verification_Service SHALL calculate the condition score as a weighted sum: surface damage (25%), structural integrity (30%), functional status (30%), completeness (10%), and AI adjustment (5%)
-9. WHEN identical media inputs are processed with the same model version, THE Verification_Service SHALL produce identical condition scores and grades
-10. IF Rekognition or Bedrock returns an error or timeout during verification, THEN THE Verification_Service SHALL retry with exponential backoff up to 3 attempts
-11. IF all retry attempts fail, THEN THE Verification_Service SHALL mark the product as pending manual review and notify the operations team
-12. WHEN verification completes successfully, THE Verification_Service SHALL emit a ProductVerified event to EventBridge
+1. WHEN the Platform starts, THE Cache_Service SHALL attempt to establish a connection to Amazon ElastiCache Redis and succeed within 5 seconds or treat the attempt as failed
+2. WHILE the Cache_Service connection is active, THE Cache_Service SHALL respond to health check queries within 10 milliseconds
+3. IF the Cache_Service connection fails during startup, THEN THE Platform SHALL complete startup successfully and serve all requests by falling back to direct DynamoDB queries until the Cache_Service connection is restored
+4. IF the Cache_Service connection is lost during operation, THEN THE Cache_Service SHALL attempt reconnection with exponential backoff starting at 1 second, doubling each interval up to a maximum interval of 30 seconds, and SHALL continue retrying indefinitely until the connection is restored
+5. THE Cache_Service SHALL use a configurable TTL (time-to-live) for all cached entries with a default of 300 seconds and a permitted range of 1 to 86400 seconds
+6. WHEN the Cache_Service reconnects after a connection loss, THE Cache_Service SHALL resume caching new queries immediately and SHALL allow previously cached entries that have not exceeded their TTL to be served without requiring a full cache repopulation
 
-### Requirement 3: AI Price Estimation
+### Requirement 2: Marketplace Query Caching
 
-**User Story:** As a seller, I want to receive an accurate price recommendation for my product, so that I can set a competitive price that reflects market conditions and product condition.
+**User Story:** As a buyer browsing nearby products, I want marketplace queries to return quickly, so that I can browse listings without waiting for database scans.
 
 #### Acceptance Criteria
 
-1. WHEN a product is verified, THE Price_Estimation_Service SHALL calculate a recommended price based on category depreciation curves, condition score, and local market demand
-2. THE Price_Estimation_Service SHALL produce a price range where the minimum is less than or equal to the recommended price, and the recommended price is less than or equal to the maximum
-3. THE Price_Estimation_Service SHALL ensure the recommended price is greater than zero for all valid products
-4. THE Price_Estimation_Service SHALL ensure the minimum price in the range is greater than zero
-5. WHEN fewer than 3 comparable products are found for price estimation, THE Price_Estimation_Service SHALL widen search criteria to broader categories and wider geography
-6. IF widened search still yields insufficient data, THEN THE Price_Estimation_Service SHALL use a depreciation-only model with a lower confidence score
-7. WHEN price confidence is low, THE Price_Estimation_Service SHALL flag the estimate for seller review and allow the seller to set a custom price within plus or minus 30% of the estimate
-8. WHEN price estimation completes, THE Price_Estimation_Service SHALL emit a PriceEstimated event to EventBridge
+1. WHEN a Geohash_Query is requested, THE Cache_Service SHALL check for a cached result keyed by the 4-character geohash prefix, product status filter, category filter, price range filter, condition filter, sort order, limit, and cursor before querying DynamoDB
+2. WHEN a cache hit occurs for a Geohash_Query, THE Marketplace_API SHALL return the cached result without querying DynamoDB
+3. WHEN a cache miss occurs for a Geohash_Query, THE Marketplace_API SHALL query DynamoDB, store the result in the Cache_Service with a TTL of 60 seconds, and return the result, including results with zero matching products
+4. WHEN a product is created, updated, or reserved, THE Cache_Service SHALL invalidate all cached entries for the 4-character geohash prefix of that product's location and all adjacent geohash prefixes
+5. WHEN the marketplace stats endpoint is called, THE Cache_Service SHALL cache the stats response with a TTL of 120 seconds
+6. THE Cache_Service SHALL use a key namespace pattern of "marketplace:{geohash}:{filters_hash}" for geohash query results
+7. IF the Cache_Service is unavailable or returns an error, THEN THE Marketplace_API SHALL bypass the cache and query DynamoDB directly, returning results within 3000 milliseconds
+8. WHEN a cached response is returned, THE Marketplace_API SHALL include a response header or field indicating the result was served from cache and the remaining TTL in seconds
 
-### Requirement 4: AI Routing Engine
+### Requirement 3: Product Detail Caching
 
-**User Story:** As a platform operator, I want products to be automatically routed to the best destination, so that recovery value is maximized while minimizing environmental impact.
-
-#### Acceptance Criteria
-
-1. WHEN a product has a condition score above 90 and positive recovery value, THE Routing_Engine SHALL route the product to resell
-2. WHEN a product has a condition score between 70 and 90, THE Routing_Engine SHALL consider the refurbish destination
-3. WHEN a product has a condition score between 40 and 70, THE Routing_Engine SHALL consider the donate destination
-4. WHEN a product has a condition score at or below 40, THE Routing_Engine SHALL consider the recycle destination
-5. WHEN a product has a condition score above 60, THE Routing_Engine SHALL consider the exchange destination
-6. THE Routing_Engine SHALL calculate recovery value as expected resale value minus shipping cost minus inspection cost minus repair cost
-7. WHEN the optimal route yields a negative recovery value, THE Routing_Engine SHALL suggest alternatives in priority order: local resale at reduced price, batch collection at nearest hub, donation, then recycling
-8. WHEN a routing decision is made, THE Routing_Engine SHALL provide a non-empty human-readable reasoning explanation
-9. THE Routing_Engine SHALL include at most 3 alternative routes with each routing decision
-10. WHEN routing completes, THE Routing_Engine SHALL emit a RouteDecided event to EventBridge
-
-### Requirement 5: Hyperlocal Marketplace Discovery
-
-**User Story:** As a buyer, I want to discover products available near me for self-pickup, so that I can avoid shipping costs and get products quickly.
+**User Story:** As a buyer viewing a product, I want product detail pages to load instantly, so that I can make quick purchase decisions.
 
 #### Acceptance Criteria
 
-1. WHEN a buyer searches for nearby products, THE Marketplace_Service SHALL return only products within the specified radius from the buyer's location
-2. THE Marketplace_Service SHALL calculate distances using the haversine formula for geographic accuracy
-3. THE Marketplace_Service SHALL ensure distance calculations are symmetric: distance from A to B equals distance from B to A
-4. WHEN a discovery query specifies a sort order, THE Marketplace_Service SHALL return results sorted according to that preference (distance, price, condition, or recency)
-5. THE Marketplace_Service SHALL limit discovery results to a maximum of 100 products per query
-6. THE Marketplace_Service SHALL return only products with status listed and not return expired or non-listed products
-7. WHEN more results exist beyond the page limit, THE Marketplace_Service SHALL provide a cursor for pagination
-8. WHEN Amazon Location Service is unavailable, THE Marketplace_Service SHALL fall back to DynamoDB geohash-based queries with approximate distance filtering
-9. THE Marketplace_Service SHALL default the search radius to 5 km when no radius is specified
+1. WHEN a product detail is requested and a cached entry exists for that product identifier, THE Cache_Service SHALL return the cached product data without querying DynamoDB
+2. WHEN a product detail is requested and no cached entry exists for that product identifier, THE Cache_Service SHALL query DynamoDB, store the result in cache with the configured TTL, and return the product data
+3. WHEN a product is updated (status change, price update, or reservation), THE Cache_Service SHALL invalidate the cached entry for that product within 1 second of the update operation completing
+4. THE Cache_Service SHALL cache individual product details with a TTL of 180 seconds
+5. THE Cache_Service SHALL use a key namespace pattern of "product:{productId}" for individual product cache entries
+6. IF the cache is unavailable, THEN THE Cache_Service SHALL fall back to querying DynamoDB directly and return the product data without caching
 
-### Requirement 6: Product Reservation and Transaction
+### Requirement 4: AI Task Queue for Routing
 
-**User Story:** As a buyer, I want to reserve a product for pickup, so that another buyer cannot purchase it while I arrange collection.
+**User Story:** As a seller submitting a product, I want my submission to complete quickly without waiting for AI analysis, so that I get immediate feedback and can continue using the platform.
 
 #### Acceptance Criteria
 
-1. WHEN a buyer reserves a product, THE Marketplace_Service SHALL lock the product using a DynamoDB conditional write to prevent concurrent reservations
-2. IF two buyers attempt to reserve the same product simultaneously, THEN THE Marketplace_Service SHALL ensure only one reservation succeeds
-3. WHEN a reservation fails due to a concurrent conflict, THE Marketplace_Service SHALL return a product unavailable message and suggest similar nearby products
-4. THE Marketplace_Service SHALL ensure the seller and buyer are different users for any transaction
-5. THE Marketplace_Service SHALL ensure the agreed price is within 80-120% of the recommended price
-6. THE Marketplace_Service SHALL ensure the pickup window duration is between 1 and 72 hours
-7. WHEN a product is reserved, THE Marketplace_Service SHALL notify the seller via SNS push notification
+1. WHEN a product passes verification, THE Queue_Service SHALL enqueue a routing task message containing the product identifier, condition score, grade, category, estimated price, location, and working status to the SQS routing queue
+2. WHEN a routing task message is enqueued, THE Platform SHALL respond to the seller with an HTTP response containing the product identifier and a "processing" status within 2 seconds of submission
+3. WHEN the Worker receives a routing task message, THE Worker SHALL invoke the Bedrock routing model, store the routing decision on the product record, and discard any duplicate message for a product that already has a routing decision stored
+4. WHEN the Worker completes a routing task, THE Worker SHALL update the product status from "verified" to "listed" in DynamoDB
+5. IF the Worker fails to process a routing task after 3 attempts, THEN THE Worker SHALL move the message to a dead-letter queue and set the product status to "routing_failed"
+6. THE Queue_Service SHALL configure a visibility timeout of 60 seconds for routing task messages
+7. IF the Queue_Service fails to enqueue the routing task message, THEN THE Platform SHALL invoke the routing model synchronously and return the routing result within 10 seconds of submission
 
-### Requirement 7: Green Credits System
+### Requirement 5: AI Task Queue for Pricing
 
-**User Story:** As a user, I want to earn Green Credits for sustainable actions, so that I am incentivized to sell, donate, and recycle instead of discarding products.
-
-#### Acceptance Criteria
-
-1. WHEN a user performs a sustainable action (sell, buy refurbished, donate, recycle, or avoid return), THE Credits_Service SHALL award credits based on the action type and impact multiplier
-2. THE Credits_Service SHALL ensure credits awarded are greater than or equal to zero for all valid actions
-3. THE Credits_Service SHALL ensure the user's total credit balance is never negative
-4. THE Credits_Service SHALL process credit awards idempotently: the same action for the same user, product, and action type succeeds at most once
-5. THE Credits_Service SHALL calculate environmental impact (CO2 saved in kilograms) for each credited action
-6. THE Credits_Service SHALL update the user balance atomically with no partial updates
-7. WHEN a user's lifetime earned credits cross a tier threshold, THE Credits_Service SHALL advance the user to the next tier
-8. THE Credits_Service SHALL ensure tier progression is monotonically non-decreasing: a user's tier never regresses
-9. THE Credits_Service SHALL ensure lifetime earned credits never decrease
-
-### Requirement 8: Batch Collection Optimization
-
-**User Story:** As a platform operator, I want low-value products to be consolidated at local hubs for batch transport, so that logistics costs are minimized.
+**User Story:** As a seller submitting a product, I want pricing estimation to happen in the background, so that my submission is not blocked by AI model latency.
 
 #### Acceptance Criteria
 
-1. WHEN a product is assigned for batch collection, THE Batch_Collection_Service SHALL assign the product to the geographically nearest hub
-2. THE Batch_Collection_Service SHALL ensure every product is assigned to exactly one hub
-3. WHEN a hub meets the minimum batch size and batch transport cost is less than the sum of individual transport costs, THE Batch_Collection_Service SHALL mark the batch as viable
-4. THE Batch_Collection_Service SHALL ensure total savings from batch collection are greater than or equal to zero
-5. THE Batch_Collection_Service SHALL ensure viable batches always have positive savings over individual transport
+1. WHEN a product passes verification, THE Queue_Service SHALL enqueue a pricing task message containing the product identifier, category, brand, model, original price, age in months, condition score, grade, working status, and location to the SQS pricing queue
+2. WHEN a pricing task message is enqueued, THE Queue_Service SHALL set the product status to "pricing_pending" and return the product identifier and current status to the seller within 2 seconds of the submission request
+3. WHEN the Worker receives a pricing task message, THE Worker SHALL invoke the Bedrock pricing model and store the resulting recommended price, price range, confidence score, pricing factors, and estimated days to sell on the product record within 30 seconds of message receipt
+4. IF the Worker fails to process a pricing task after 3 attempts, THEN THE Worker SHALL move the message to a dead-letter queue, apply the local pricing fallback to the product record, and set the product status to reflect that fallback pricing was used
+5. THE Queue_Service SHALL configure a visibility timeout of 45 seconds for pricing task messages
+6. WHEN both pricing and routing tasks complete successfully for a product, THE Worker SHALL update the product status to "listed"
+7. IF the pricing task completes but the routing task has failed after exhausting retries (or vice versa), THEN THE Worker SHALL set the product status to "partially_processed" and store which task succeeded and which used a fallback on the product record
 
-### Requirement 9: Data Validation
+### Requirement 6: Interest Subscription Management
 
-**User Story:** As a platform operator, I want all inputs to be validated, so that the system processes only well-formed data and rejects malformed requests.
-
-#### Acceptance Criteria
-
-1. THE Platform SHALL validate that product IDs are valid UUID v4 format
-2. THE Platform SHALL validate that product categories belong to the approved category taxonomy
-3. THE Platform SHALL validate that original price is a positive number
-4. THE Platform SHALL validate that age in months is a non-negative number
-5. THE Platform SHALL validate that latitude values are between -90 and 90
-6. THE Platform SHALL validate that longitude values are between -180 and 180
-7. THE Platform SHALL validate all API inputs using Zod schemas at the Lambda handler layer before processing
-8. WHEN input validation fails, THE Platform SHALL reject the request with a descriptive error before initiating any business logic
-
-### Requirement 10: Authentication and Authorization
-
-**User Story:** As a user, I want my data and products to be secure, so that only I can manage my submissions and only authenticated users can access the platform.
+**User Story:** As a buyer, I want to subscribe to notifications for products matching my interests, so that I am alerted when relevant items become available nearby.
 
 #### Acceptance Criteria
 
-1. THE Platform SHALL require a valid Amazon Cognito JWT for all API endpoints
-2. THE Platform SHALL enforce that users can only modify their own products through DynamoDB conditional expressions
-3. THE Platform SHALL enforce role-based permissions scoped to seller, buyer, and admin roles
-4. THE Platform SHALL rate-limit API requests to 100 requests per second per user via API Gateway throttling
-5. THE Platform SHALL store user location as geohash (approximate) in marketplace listings and share exact location only after transaction agreement
+1. WHEN an authenticated user submits interest criteria (category, price range with minimum of 0.01 and maximum of 999,999.99, location radius), THE Notification_Service SHALL persist the Interest_Subscription in DynamoDB
+2. THE Notification_Service SHALL allow a maximum of 10 active Interest_Subscriptions per user
+3. IF an authenticated user attempts to create an Interest_Subscription and already has 10 active subscriptions, THEN THE Notification_Service SHALL reject the request with an error message indicating the subscription limit has been reached and preserve all existing subscriptions unchanged
+4. WHEN a user requests their active subscriptions, THE Notification_Service SHALL return all Interest_Subscriptions for that user including subscription ID, category, price range, location radius, and creation timestamp
+5. WHEN a user deletes a subscription that belongs to that user, THE Notification_Service SHALL remove the Interest_Subscription from DynamoDB
+6. IF a user attempts to delete a subscription that does not exist or belongs to another user, THEN THE Notification_Service SHALL reject the request with an error message indicating the subscription was not found
+7. IF the submitted location radius is less than 1 or greater than 50 kilometers, THEN THE Notification_Service SHALL reject the subscription request with an error message indicating the valid radius range
 
-### Requirement 11: Event-Driven Orchestration
+### Requirement 7: Real-time Product Match Notifications
 
-**User Story:** As a platform operator, I want the processing pipeline to be event-driven, so that services are loosely coupled and can scale independently.
+**User Story:** As a buyer with active interest subscriptions, I want to receive immediate notifications when matching products are listed, so that I can act quickly on desirable items.
 
 #### Acceptance Criteria
 
-1. WHEN a product is verified, THE Platform SHALL emit a ProductVerified event to EventBridge to trigger price estimation
-2. WHEN price estimation completes, THE Platform SHALL emit a PriceEstimated event to EventBridge to trigger routing
-3. WHEN a routing decision is made, THE Platform SHALL emit a RouteDecided event to EventBridge to trigger notifications and analytics
-4. WHEN a user's tier changes, THE Credits_Service SHALL emit a TierUp event to EventBridge
+1. WHEN a product status changes to "listed", THE Notification_Service SHALL evaluate the product against all Interest_Subscriptions whose geohash region (4-character geohash prefix and its 8 adjacent prefixes) overlaps with the product's location
+2. WHEN a product satisfies ALL of an Interest_Subscription's criteria (category matches, recommended price falls within the subscription's price range, and haversine distance from the subscription's center point to the product location is within the subscription's radius), THE Notification_Service SHALL send a notification to the subscribed user
+3. WHEN a WebSocket connection is active for the subscribed user, THE Notification_Service SHALL deliver the notification via the WebSocket connection
+4. WHEN no WebSocket connection is active for the subscribed user, THE Notification_Service SHALL publish the notification to an SNS topic for later delivery
+5. THE Notification_Service SHALL include the product identifier, category, recommended price, and distance in kilometers (rounded to one decimal place) in the notification payload
+6. THE Notification_Service SHALL deliver notifications within 30 seconds of a product being listed
+7. IF a single product matches multiple Interest_Subscriptions for the same user, THEN THE Notification_Service SHALL send only one notification to that user for that product
+8. IF the Notification_Service fails to deliver a notification via WebSocket or SNS, THEN THE Notification_Service SHALL retry delivery up to 3 times with exponential backoff starting at 1 second, and log the failure if all attempts are exhausted
+
+### Requirement 8: WebSocket Connection Management
+
+**User Story:** As a buyer, I want to maintain a persistent connection for real-time updates, so that I receive notifications without polling.
+
+#### Acceptance Criteria
+
+1. WHEN an authenticated user connects via WebSocket, THE Notification_Service SHALL register the connection with the user's identifier and send a confirmation message to the client within 2 seconds
+2. WHEN a WebSocket connection has neither sent nor received any application-level message for more than 10 minutes, THE Notification_Service SHALL send a ping to verify the connection is alive
+3. IF a WebSocket ping receives no response within 30 seconds, THEN THE Notification_Service SHALL close the connection and deregister it
+4. WHEN a user disconnects, THE Notification_Service SHALL deregister the connection within 5 seconds
+5. IF an authenticated user attempts to open a WebSocket connection and already has 3 active connections, THEN THE Notification_Service SHALL reject the new connection and return an error message indicating the maximum connection limit has been reached
+6. IF an unauthenticated user attempts to open a WebSocket connection, THEN THE Notification_Service SHALL reject the connection within 2 seconds and return an error message indicating authentication is required
+
+### Requirement 9: Submit Review After Transaction
+
+**User Story:** As a buyer or seller who completed a transaction, I want to leave a review for the other party, so that the community can make informed trust decisions.
+
+#### Acceptance Criteria
+
+1. WHEN a transaction status changes to "completed", THE Review_Service SHALL allow both the buyer and the seller to submit one review each for that transaction within 30 days of the transaction completion timestamp
+2. THE Review_Service SHALL require a rating between 1 and 5 (integer), a title (minimum 1 character, maximum 100 characters), and review text (minimum 1 character, maximum 500 characters) for each review submission
+3. IF a user attempts to submit a review for a transaction that is not "completed", THEN THE Review_Service SHALL reject the submission with an error message indicating that the transaction is not in a reviewable state
+4. IF a user attempts to submit a second review for the same transaction, THEN THE Review_Service SHALL reject the submission with an error message indicating that a review has already been submitted by that user for the transaction
+5. WHEN a review is submitted, THE Review_Service SHALL store it with the reviewer identifier, reviewee identifier, transaction identifier, product identifier, rating, title, text, and a server-generated timestamp representing the moment of submission
+6. IF a user attempts to submit a review for a transaction in which they are neither the buyer nor the seller, THEN THE Review_Service SHALL reject the submission with an error message indicating that the user is not a participant in the transaction
+7. IF a review submission contains a rating outside the 1–5 integer range, a title shorter than 1 or longer than 100 characters, or review text shorter than 1 or longer than 500 characters, THEN THE Review_Service SHALL reject the submission with an error message identifying which field failed validation
+
+### Requirement 10: User Reputation Score Calculation
+
+**User Story:** As a buyer evaluating a seller, I want to see their reputation score based on real transaction history, so that I can assess trustworthiness before purchasing.
+
+#### Acceptance Criteria
+
+1. WHEN a new review is submitted, THE Review_Service SHALL recalculate the Reputation_Score for the reviewed user
+2. THE Review_Service SHALL compute the Reputation_Score as a weighted average: 70% from average review rating (normalized linearly from 1–5 scale to 0–100), 20% from completed transaction count (linearly normalized where 0 transactions yields 0 and 50 or more transactions yields 100), and 10% from account age in days (linearly normalized where 0 days yields 0 and 365 or more days yields 100)
+3. THE Review_Service SHALL normalize the Reputation_Score to an integer between 0 and 100, rounded to the nearest whole number
+4. WHEN a user profile is requested and the user has zero reviews, THE Review_Service SHALL return a default Reputation_Score of 0, a total review count of 0, and an average rating of 0
+5. WHEN a user profile is requested, THE Review_Service SHALL include the Reputation_Score, total review count, and average rating (rounded to one decimal place) in the response
+6. THE Review_Service SHALL cache the computed Reputation_Score in the Cache_Service with a TTL of 300 seconds
+7. IF the Cache_Service does not contain a cached Reputation_Score when a user profile is requested, THEN THE Review_Service SHALL recompute the Reputation_Score on demand and cache the result
+8. IF the Reputation_Score recalculation fails due to a transient error, THEN THE Review_Service SHALL retain the previously stored Reputation_Score and log the failure for investigation
+
+### Requirement 11: Display Reviews on Product Detail
+
+**User Story:** As a buyer viewing a product, I want to see real reviews of the seller, so that I can make an informed purchase decision.
+
+#### Acceptance Criteria
+
+1. WHEN a product detail page is requested, THE Marketplace_API SHALL retrieve the seller's reviews from the Review_Service instead of generating mock reviews
+2. WHEN a product detail page is requested, THE Marketplace_API SHALL return the 10 most recent reviews for the seller, ordered by submission timestamp descending, where each review includes the reviewer identifier, rating, title, text, and submission timestamp
+3. WHEN a product detail page is requested, THE Marketplace_API SHALL include the seller's Reputation_Score (integer 0-100), average rating (rounded to one decimal place), and total review count in the product detail response
+4. IF the seller has no reviews, THEN THE Marketplace_API SHALL return an empty review list, an average rating of 0, a total review count of 0, and a default Reputation_Score of 50
+5. IF the Review_Service is unavailable when a product detail page is requested, THEN THE Marketplace_API SHALL return the product detail with an empty review list and a default Reputation_Score of 50 rather than failing the entire request
+
+### Requirement 12: AI-Personalized Notification Mode
+
+**User Story:** As a buyer who does not want to receive all subscription-matched notifications, I want to opt into AI-personalized notifications, so that I only receive alerts for products that Bedrock AI determines are the best fit for me based on my purchase history, browsing patterns, and preferences.
+
+#### Acceptance Criteria
+
+1. WHEN an authenticated user updates their notification preference, THE Notification_Service SHALL allow the user to choose between "all" mode (receive every subscription-matched notification) and "personalized" mode (receive only AI-filtered notifications)
+2. THE Notification_Service SHALL persist the user's notification mode preference in DynamoDB on the user profile record
+3. WHEN a product matches a user's Interest_Subscription and the user's notification mode is "all", THE Notification_Service SHALL deliver the notification without AI filtering
+4. WHEN a product matches a user's Interest_Subscription and the user's notification mode is "personalized", THE Notification_Service SHALL invoke AWS Bedrock to score the relevance of the product to the user based on the user's purchase history (past categories, brands, price ranges), browsing behavior (recently viewed categories), and stated preferences
+5. WHEN the Bedrock relevance score for a matched product exceeds a configurable threshold (environment variable `PERSONALIZATION_THRESHOLD`, default 0.7, range 0.0–1.0), THE Notification_Service SHALL deliver the notification to the user
+6. WHEN the Bedrock relevance score for a matched product is at or below the threshold, THE Notification_Service SHALL suppress the notification and log the suppressed notification with the product identifier, user identifier, and relevance score
+7. IF the Bedrock personalization call fails or times out (maximum 5 seconds), THEN THE Notification_Service SHALL fall back to delivering the notification (treat as "all" mode) and log the failure
+8. THE Notification_Service SHALL pass the following context to Bedrock for personalization scoring: user's completed transaction history (categories, brands, price ranges), user's active Interest_Subscriptions, the matched product's category, brand, condition score, and recommended price
+9. WHEN a user switches from "personalized" mode back to "all" mode, THE Notification_Service SHALL immediately resume delivering all subscription-matched notifications without AI filtering
+
+### Requirement 13: Queue Health Monitoring
+
+**User Story:** As a platform operator, I want visibility into queue processing health, so that I can detect and resolve bottlenecks before they affect users.
+
+#### Acceptance Criteria
+
+1. THE Platform SHALL expose a queue health endpoint that reports the approximate message count for each SQS queue (routing, pricing) and respond within 5 seconds
+2. THE Platform SHALL expose the approximate number of messages in each dead-letter queue via the same queue health endpoint
+3. WHEN the Platform checks dead-letter queue message counts and the count exceeds 10 for any queue, THE Platform SHALL log a warning containing the queue name and current message count, with checks occurring at least every 60 seconds
+4. THE Worker SHALL log processing duration in milliseconds for each completed task and expose the average processing time per queue over a rolling 5-minute window via the queue health endpoint
+5. IF the Platform cannot retrieve queue attributes from SQS, THEN THE Platform SHALL return the health endpoint response with a status indicating the affected queue is unreachable and log an error with the queue name and failure reason
+
+### Requirement 14: Cache and Queue Configuration
+
+**User Story:** As a platform operator, I want all scaling infrastructure to be configurable via environment variables, so that I can tune performance without code changes.
+
+#### Acceptance Criteria
+
+1. THE Platform SHALL read the ElastiCache Redis endpoint from the REDIS_ENDPOINT environment variable
+2. THE Platform SHALL read SQS queue URLs from ROUTING_QUEUE_URL and PRICING_QUEUE_URL environment variables
+3. THE Platform SHALL read the WebSocket API Gateway endpoint from WEBSOCKET_ENDPOINT environment variable
+4. THE Platform SHALL read the SNS topic ARN from NOTIFICATION_TOPIC_ARN environment variable
+5. IF a required queue or cache environment variable is missing, THEN THE Platform SHALL log a warning identifying the missing variable name and disable the corresponding feature gracefully rather than crashing
+6. THE Platform SHALL read dead-letter queue URLs from ROUTING_DLQ_URL and PRICING_DLQ_URL environment variables
+7. THE Platform SHALL expose the active/disabled status of each feature (cache, routing queue, pricing queue, notifications) via the health endpoint so operators can confirm which features are enabled
+
+### Requirement 15: Frontend Graceful Degradation
+
+**User Story:** As a buyer browsing the marketplace on a mobile device with inconsistent connectivity, I want the app to remain usable even when backend services are slow or partially unavailable, so that I can continue discovering and purchasing products without frustration.
+
+#### Acceptance Criteria
+
+1. WHEN the marketplace nearby API response is cached locally and a fresh request fails or exceeds 3 seconds, THE Frontend SHALL display the cached product listings with a visible "Last updated X minutes ago" indicator
+2. WHEN a product detail API request fails but a cached version exists, THE Frontend SHALL display the cached product detail with a "Some details may be outdated" banner and a retry button
+3. WHEN a product detail loads successfully but the reviews section fails (Review_Service unavailable), THE Frontend SHALL render the product information with a "Reviews temporarily unavailable" placeholder instead of blocking the entire page
+4. WHEN the AI pricing and routing tasks are processing asynchronously (product status is "processing"), THE Frontend SHALL display a skeleton UI with animated placeholders and a "AI is analyzing your product..." progress indicator instead of a blank or error state
+5. WHEN a WebSocket connection is lost, THE Frontend SHALL display a "Reconnecting..." toast notification, attempt automatic reconnection with exponential backoff (1s, 2s, 4s, up to 30s), and resume normal UI state upon successful reconnection
+6. WHEN the user submits a review or creates a notification subscription, THE Frontend SHALL apply optimistic UI (show success immediately) and revert the UI change only if the server confirms failure after 3 retry attempts
+7. THE Frontend SHALL cache the last successful marketplace query results (up to 50 products) in browser storage (localStorage or IndexedDB) and serve them as fallback data when the API is unreachable
+8. WHEN the backend returns a degraded response (e.g., product detail without reviews, marketplace listing without pricing), THE Frontend SHALL render all available data and clearly indicate which sections are unavailable rather than showing a full error page
+9. WHEN network connectivity is lost entirely, THE Frontend SHALL display a persistent offline banner and allow the user to browse previously cached marketplace listings and product details in read-only mode
+10. WHEN network connectivity is restored after an offline period, THE Frontend SHALL automatically refresh the current view with fresh data and dismiss the offline banner within 5 seconds
+
+### Requirement 16: CloudFront Edge Proxy for API
+
+**User Story:** As a buyer accessing the marketplace from any geographic location, I want API responses to be served from edge locations close to me, so that I experience lower latency and the platform remains protected against DDoS attacks without additional application code.
+
+#### Acceptance Criteria
+
+1. THE Platform SHALL configure an Amazon CloudFront distribution with two origins: an S3 origin for static frontend assets (existing) and an Elastic Beanstalk ALB origin for API requests (path pattern `/api/*` and `/health`)
+2. WHEN a GET request is made to `/api/marketplace/nearby`, `/api/marketplace/stats`, or `/api/marketplace/product/:productId`, THE CloudFront distribution SHALL cache the response at edge locations with a TTL of 30 seconds (shorter than the backend Redis TTL to ensure freshness)
+3. WHEN a non-GET request (POST, PUT, DELETE) is made to any `/api/*` path, THE CloudFront distribution SHALL forward the request to the ALB origin without caching
+4. THE CloudFront distribution SHALL forward the `Authorization` header to the ALB origin for all `/api/*` requests so that authenticated routes continue to function
+5. THE CloudFront distribution SHALL forward query string parameters to the ALB origin for all `/api/*` requests so that marketplace query filters (latitude, longitude, radiusKm, category, etc.) are preserved
+6. THE CloudFront distribution SHALL include AWS Shield Standard protection (free) to mitigate volumetric DDoS attacks against the API without any application-level code changes
+7. THE CloudFront distribution SHALL set a custom response header `x-edge-location` on cached responses indicating the edge location that served the request
+8. WHEN a cached API response exists at the edge and the backend origin is unreachable (origin failover scenario), THE CloudFront distribution SHALL serve the stale cached response rather than returning a 5xx error to the client
+9. THE Platform SHALL configure CloudFront to compress API responses (gzip/brotli) for all JSON responses to reduce bandwidth and improve mobile performance
+10. THE Platform SHALL configure the CloudFront distribution's API behavior to use HTTPS-only viewer policy and TLSv1.2 minimum for origin connections
+11. THE CloudFront distribution SHALL use cache keys based on the request path, query string parameters, and `Authorization` header to ensure authenticated users do not receive cached responses intended for other users on protected endpoints
+12. FOR public endpoints (`/api/marketplace/*`), THE CloudFront distribution SHALL cache responses without the `Authorization` header in the cache key so that all users benefit from shared edge caching
