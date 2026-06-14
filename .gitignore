@@ -9,3 +9,6 @@ backend/.env
 frontend/.env
 backend/dist/
 frontend/dist/
+cloudfront-*.json
+last 100 logs.txt
+*.log
