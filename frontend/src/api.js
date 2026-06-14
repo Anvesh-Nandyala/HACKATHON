@@ -85,6 +85,8 @@ export const api = {
   getMarketStats: () => request('/marketplace/stats'),
   getBatchStatus: () => request('/marketplace/batch-status'),
   getProductDetail: (id) => request(`/marketplace/product/${id}`),
+  getRescueRecommendations: () => request('/recommendations/rescue'),
+  getRefurbishedRecommendations: () => request('/recommendations/refurbished'),
 
   // Transactions
   reserveProduct: (data) => request('/transactions/reserve', { method: 'POST', body: JSON.stringify(data) }),
