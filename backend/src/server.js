@@ -62,6 +62,7 @@ app.use('/api/seed', require('./routes/seed'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/compatibility', require('./routes/compatibility'));
 app.use('/api/recommendations', require('./routes/recommendations'));
+app.use('/api/location', require('./routes/location'));
 
 // Protected routes
 app.use('/api/uploads', authMiddleware, require('./routes/uploads'));

@@ -25,7 +25,7 @@ function pickupWindow() {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-export default function Marketplace({ user }) {
+export default function Marketplace({ user, buyerLocation }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -37,8 +37,8 @@ export default function Marketplace({ user }) {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const [filters, setFilters] = useState({
-    latitude: 40.7128,
-    longitude: -74.0060,
+    latitude: buyerLocation?.latitude || 40.7128,
+    longitude: buyerLocation?.longitude || -74.0060,
     radiusKm: 50,
     sortBy: searchParams.get('sortBy') || 'distance',
     category: searchParams.get('category') || '',
@@ -90,8 +90,8 @@ export default function Marketplace({ user }) {
 
   useEffect(() => {
     const nextFilters = {
-      latitude: 40.7128,
-      longitude: -74.0060,
+      latitude: buyerLocation?.latitude || 40.7128,
+      longitude: buyerLocation?.longitude || -74.0060,
       radiusKm: 50,
       sortBy: searchParams.get('sortBy') || 'distance',
       category: searchParams.get('category') || '',
@@ -99,7 +99,7 @@ export default function Marketplace({ user }) {
     };
     setFilters(nextFilters);
     search(nextFilters);
-  }, [searchParams]);
+  }, [searchParams, buyerLocation]);
 
   const clearFilters = () => {
     const nextFilters = { ...filters, radiusKm: 50, category: '', q: '' };

@@ -78,6 +78,7 @@ export const api = {
   getMyProducts: () => request('/products'),
 
   // Marketplace
+  geocodeAddress: (address) => request('/location/geocode', { method: 'POST', body: JSON.stringify({ address }) }),
   discoverNearby: (params) => {
     const query = new URLSearchParams(params).toString();
     return request(`/marketplace/nearby?${query}`);

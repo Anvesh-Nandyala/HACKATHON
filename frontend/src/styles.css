@@ -94,6 +94,14 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
   white-space: nowrap;
 }
 
+.header-location-button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ccc;
+  font-family: inherit;
+  text-align: left;
+}
+
 .header-location:hover { border-color: white; }
 .header-location strong { color: white; font-size: 0.85rem; }
 
@@ -192,6 +200,53 @@ a:hover { color: var(--blue-hover); text-decoration: underline; }
 
 .header-sub a:hover { border-color: white; text-decoration: none; }
 .header-sub a.active { font-weight: 700; border-color: var(--accent); }
+
+.location-overlay {
+  align-items: flex-start;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 5rem 1rem 1rem;
+  position: fixed;
+  z-index: 2000;
+}
+
+.location-modal {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  max-width: 460px;
+  padding: 1.25rem;
+  width: 100%;
+}
+
+.location-modal-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.location-modal-header h2 {
+  font-size: 1.2rem;
+}
+
+.location-close {
+  background: white;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+}
+
+.location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
 
 /* ─── Main Content ─── */
 .main {
