@@ -64,6 +64,15 @@ export default function App() {
       api.getBalance()
         .then(data => setCredits(data.totalCredits))
         .catch(() => {});
+      
+      api.getMe()
+        .then(data => {
+          if (data.addresses && data.addresses.length > 0) {
+            localStorage.setItem('saved_buyer_addresses', JSON.stringify(data.addresses));
+            setSavedAddresses(data.addresses);
+          }
+        })
+        .catch(() => {});
     }
   }, [user, creditRefresh]);
 
@@ -192,8 +201,13 @@ export default function App() {
         longitude: data.longitude,
       };
       
-      setSavedAddresses(addSavedAddress(newLoc));
+      const updatedAddresses = addSavedAddress(newLoc);
+      setSavedAddresses(updatedAddresses);
       setBuyerLocation(saveBuyerLocation(newLoc));
+      
+      if (user) {
+        api.updateAddresses(updatedAddresses).catch(() => {});
+      }
       
       setLocationStatus('Location saved.');
       setLocationOpen(false);
@@ -221,8 +235,13 @@ export default function App() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        setSavedAddresses(addSavedAddress(newLoc));
+        const updatedAddresses = addSavedAddress(newLoc);
+        setSavedAddresses(updatedAddresses);
         setBuyerLocation(saveBuyerLocation(newLoc));
+        
+        if (user) {
+          api.updateAddresses(updatedAddresses).catch(() => {});
+        }
         setLocationStatus('Location saved.');
         setLocationOpen(false);
         setAddingNewLocation(false);

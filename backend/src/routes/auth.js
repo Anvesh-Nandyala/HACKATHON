@@ -75,6 +75,7 @@ router.post('/register', async (req, res, next) => {
         name: user.name,
         role: user.role,
         createdAt: user.createdAt,
+        addresses: user.addresses || [],
       },
     });
   } catch (err) {
@@ -117,6 +118,7 @@ router.post('/login', async (req, res, next) => {
         name: user.name,
         role: user.role,
         createdAt: user.createdAt,
+        addresses: user.addresses || [],
       },
     });
   } catch (err) {
@@ -149,7 +151,44 @@ router.get('/me', async (req, res, next) => {
       name: user.name,
       role: user.role,
       createdAt: user.createdAt,
+      addresses: user.addresses || [],
     });
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    next(err);
+  }
+});
+
+/**
+ * PUT /api/auth/me/addresses
+ * Update current user's saved addresses.
+ */
+router.put('/me/addresses', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await store.getUser(decoded.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { addresses } = req.body;
+    if (!Array.isArray(addresses)) {
+      return res.status(400).json({ error: 'Addresses must be an array' });
+    }
+
+    user.addresses = addresses;
+    await store.saveUser(user);
+
+    res.json({ addresses: user.addresses });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Invalid or expired token' });

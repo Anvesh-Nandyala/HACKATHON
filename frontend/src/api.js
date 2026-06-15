@@ -61,6 +61,8 @@ export const api = {
   // Auth
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  getMe: () => request('/auth/me'),
+  updateAddresses: (addresses) => request('/auth/me/addresses', { method: 'PUT', body: JSON.stringify({ addresses }) }),
 
   // Products
   uploadImage: (file) => {
