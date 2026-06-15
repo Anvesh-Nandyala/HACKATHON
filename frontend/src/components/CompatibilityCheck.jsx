@@ -6,7 +6,7 @@ function localCompatibilityCheck(product, userQuery) {
   const name = `${product?.name || ''} ${product?.brand || ''} ${product?.model || ''}`.toLowerCase();
   const category = String(product?.category || '').toLowerCase();
   const warnings = [];
-  let compatible = true;
+  let compatible = false;
   let confidence = 0.72;
 
   if ((query.includes('video editing') || query.includes('editing') || query.includes('gaming')) && category === 'electronics') {
