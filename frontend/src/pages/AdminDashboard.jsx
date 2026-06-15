@@ -142,14 +142,20 @@ function ProductsTab({ stats }) {
   const [msg, setMsg] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [mediaUrls, setMediaUrls] = useState({});
+  const [subTab, setSubTab] = useState('existing');
 
   const load = async () => {
     setLoading(true);
     setMsg('');
     try {
-      const params = statusFilter ? { status: statusFilter } : {};
-      const data = await api.getAdminProducts(params);
-      setProducts(data.products || []);
+      if (subTab === 'existing') {
+        const params = statusFilter ? { status: statusFilter } : {};
+        const data = await api.getAdminProducts(params);
+        setProducts(data.products || []);
+      } else {
+        const data = await api.getAdminReturns();
+        setProducts(data.products || []);
+      }
     } catch (err) {
       setMsg(err.message || 'Failed to load products.');
     } finally {
@@ -157,7 +163,7 @@ function ProductsTab({ stats }) {
     }
   };
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load(); }, [statusFilter, subTab]);
 
   const handleStatusChange = async (productId, newStatus) => {
     setBusy(true);
@@ -205,21 +211,46 @@ function ProductsTab({ stats }) {
 
   return (
     <div className="adm-tab-content">
+      <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+        <button 
+          className={`btn ${subTab === 'existing' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => { setSubTab('existing'); setStatusFilter(''); }}
+          style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '4px' }}
+        >
+          Existing User Products
+        </button>
+        <button 
+          className={`btn ${subTab === 'returned' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => { setSubTab('returned'); setStatusFilter(''); }}
+          style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderRadius: '4px' }}
+        >
+          Returned Products
+        </button>
+      </div>
+
       <div className="adm-table-toolbar">
-        <div className="adm-filter-row">
-          <label className="adm-filter-label">Status</label>
-          <select
-            className="adm-filter-select"
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            {PRODUCT_STATUSES.map(s => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
-            ))}
-          </select>
-        </div>
-        <div className="adm-count-chip">{totalProducts} products</div>
+        {subTab === 'existing' ? (
+          <div className="adm-filter-row">
+            <label className="adm-filter-label">Status</label>
+            <select
+              className="adm-filter-select"
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All statuses</option>
+              {PRODUCT_STATUSES.map(s => (
+                <option key={s} value={s}>{statusLabel(s)}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="adm-filter-row">
+            <span style={{ fontSize: '0.9rem', color: 'var(--gray-600)', fontWeight: 500 }}>
+              Items needing inspection or admin resolution
+            </span>
+          </div>
+        )}
+        <div className="adm-count-chip">{subTab === 'existing' ? totalProducts : products.length} products</div>
       </div>
 
       {msg && <div className="adm-msg">{msg}</div>}
