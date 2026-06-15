@@ -1,520 +1,529 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
-const STATUSES = [
-  'listed',
-  'reserved',
-  'sold',
-  'returned',
-  'return_requested',
-  'refurbishment_review',
-  'recycled',
-  'donated',
-  'rejected_media_mismatch',
-  'hidden',
-  'archived',
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PRODUCT_STATUSES = [
+  'listed', 'pending_verification', 'verified', 'reserved', 'sold',
+  'returned', 'return_requested', 'refurbishment_review', 'recycled',
+  'donated', 'rejected_media_mismatch', 'hidden', 'archived',
 ];
 
-const CATEGORIES = [
-  'electronics', 'clothing', 'furniture', 'books', 'toys',
-  'appliances', 'sports', 'tools', 'jewelry', 'automotive',
-  'home-garden', 'health-beauty', 'office', 'pet-supplies', 'other'
-];
+const TXN_STATUSES = ['reserved', 'completed', 'cancelled', 'return_requested'];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function money(value) {
-  return value ? `$${value}` : 'N/A';
+  if (!value && value !== 0) return 'N/A';
+  return `$${Number(value).toLocaleString()}`;
 }
 
-function date(value) {
-  return value ? new Date(value).toLocaleDateString() : 'N/A';
+function fmtDate(value) {
+  if (!value) return 'N/A';
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'numeric', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
 }
 
 function statusLabel(status) {
-  return String(status || 'unknown').replace(/_/g, ' ');
+  if (!status) return 'Unknown';
+  return String(status)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function readLocalReturnedPurchases() {
-  return JSON.parse(localStorage.getItem('demo_purchased_products') || '[]')
-    .filter(item => ['refurbished', 'recycled', 'admin_review', 'donated'].includes(item.status));
-}
-
-function saveLocalReturnedPurchases(items) {
-  const all = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
-  const returnedIds = new Set(items.map(item => item.purchaseId));
-  const merged = all.map(item => returnedIds.has(item.purchaseId)
-    ? items.find(next => next.purchaseId === item.purchaseId)
-    : item);
-  localStorage.setItem('demo_purchased_products', JSON.stringify(merged));
-}
-
-function AdminMediaPreview({ product }) {
-  const [media, setMedia] = useState({ images: [], video: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const imageCount = product.media?.imageCount || 0;
-  const hasVideo = Boolean(product.media?.hasVideo);
-
-  useEffect(() => {
-    let cancelled = false;
-    const urls = [];
-
-    async function loadMedia() {
-      if (!imageCount && !hasVideo) {
-        setMedia({ images: [], video: '' });
-        setError('');
-        return;
-      }
-
-      setLoading(true);
-      setError('');
-      try {
-        const imageIndexes = Array.from({ length: Math.min(imageCount, 4) }, (_, index) => index);
-        const images = await Promise.all(
-          imageIndexes.map(index => api.getAdminMediaUrl(product.productId, 'image', index))
-        );
-        urls.push(...images);
-
-        const video = hasVideo
-          ? await api.getAdminMediaUrl(product.productId, 'video', 0)
-          : '';
-        if (video) urls.push(video);
-
-        if (!cancelled) setMedia({ images, video });
-      } catch (err) {
-        if (!cancelled) setError(err.message || 'Could not load uploaded media.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadMedia();
-
-    return () => {
-      cancelled = true;
-      urls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [product.productId, imageCount, hasVideo]);
-
-  if (!imageCount && !hasVideo) {
-    return <div className="admin-media-empty">No uploaded pictures or video.</div>;
-  }
-
-  return (
-    <div className="admin-media-section">
-      <h3>Uploaded Pictures and Video</h3>
-      {loading && <div className="admin-muted">Loading media...</div>}
-      {error && <div className="admin-media-error">{error}</div>}
-      <div className="admin-media-grid">
-        {media.images.map((url, index) => (
-          <img
-            key={url}
-            className="admin-media-thumb"
-            src={url}
-            alt={`${product.name} upload ${index + 1}`}
-          />
-        ))}
-        {media.video && (
-          <video className="admin-media-video" src={media.video} controls />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProductEditor({ product, onSave, onReturn, onResolveReturn, onDelete, busy }) {
-  const [draft, setDraft] = useState(() => ({
-    status: product.status || 'listed',
-    category: product.category || 'electronics',
-    brand: product.brand || '',
-    model: product.model || '',
-    condition: product.condition || 'like-new',
-    recommendedPrice: product.recommendedPrice || '',
-    adminNote: product.adminNote || '',
-    returnReason: product.returnReason || '',
-  }));
-
-  useEffect(() => {
-    setDraft({
-      status: product.status || 'listed',
-      category: product.category || 'electronics',
-      brand: product.brand || '',
-      model: product.model || '',
-      condition: product.condition || 'like-new',
-      recommendedPrice: product.recommendedPrice || '',
-      adminNote: product.adminNote || '',
-      returnReason: product.returnReason || '',
-    });
-  }, [product]);
-
-  const update = field => event => setDraft({ ...draft, [field]: event.target.value });
-
-  const payload = {
-    ...draft,
-    recommendedPrice: draft.recommendedPrice ? parseFloat(draft.recommendedPrice) : undefined,
+function getStatusClass(status) {
+  const map = {
+    listed: 'status-listed',
+    pending_verification: 'status-pending',
+    verified: 'status-verified',
+    reserved: 'status-reserved',
+    sold: 'status-sold',
+    returned: 'status-returned',
+    return_requested: 'status-returned',
+    refurbishment_review: 'status-pending',
+    recycled: 'status-recycled',
+    donated: 'status-donated',
+    rejected_media_mismatch: 'status-rejected',
+    hidden: 'status-hidden',
+    archived: 'status-archived',
+    completed: 'status-sold',
+    cancelled: 'status-hidden',
+    admin: 'status-admin',
+    seller: 'status-seller',
   };
+  return map[status] || 'status-default';
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({ label, value, sub }) {
+  return (
+    <div className="adm-stat-card">
+      <div className="adm-stat-label">{label}</div>
+      <div className="adm-stat-value">{value}</div>
+      {sub && <div className="adm-stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  return (
+    <span className={`adm-badge ${getStatusClass(status)}`}>
+      {statusLabel(status)}
+    </span>
+  );
+}
+
+function ActionSelect({ value, options, onChange, busy }) {
+  return (
+    <select
+      className="adm-action-select"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={busy}
+    >
+      {options.map(opt => (
+        <option key={opt} value={opt}>{statusLabel(opt)}</option>
+      ))}
+    </select>
+  );
+}
+
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+
+function OverviewTab({ stats }) {
+  if (!stats) return <p className="adm-loading">Loading overview…</p>;
+
+  const byStatus = stats.byStatus || {};
+  const statusEntries = Object.entries(byStatus).filter(([, v]) => v > 0);
 
   return (
-    <div className="admin-expanded-panel">
-      <AdminMediaPreview product={product} />
-      {product.returnInspection && (
-        <div className="admin-media-section">
-          <h3>AI Return Inspection</h3>
-          <div className="admin-return-grid">
-            <div><span>Damage</span><strong>{product.returnInspection.severity}</strong></div>
-            <div><span>Decision</span><strong>{product.returnInspection.disposition}</strong></div>
-            <div><span>Score</span><strong>{Math.round((product.returnInspection.damageScore || 0) * 100)}%</strong></div>
+    <div className="adm-overview">
+      <div className="adm-stat-grid">
+        <StatCard label="Users" value={stats.totalUsers ?? '—'} sub="registered accounts" />
+        <StatCard label="Products" value={stats.totalProducts ?? '—'} sub={`${stats.activeListed ?? 0} currently listed`} />
+        <StatCard label="Reservations" value={stats.reserved ?? '—'} sub={`${stats.completedTransactions ?? 0} completed`} />
+        <StatCard label="Completed Value" value={money(stats.completedValue)} sub="gross local pickup value" />
+      </div>
+
+      <div className="adm-overview-panels">
+        <div className="adm-panel">
+          <div className="adm-panel-title">Product Status</div>
+          <div className="adm-status-grid">
+            {statusEntries.map(([status, count]) => (
+              <div key={status} className="adm-status-row">
+                <StatusBadge status={status} />
+                <span className="adm-status-count">{count}</span>
+              </div>
+            ))}
+            {statusEntries.length === 0 && <p className="adm-muted">No products yet.</p>}
           </div>
-          <p className="admin-muted">{product.returnInspection.recommendation}</p>
-          {product.returnInspection.findings?.length > 0 && (
-            <ul className="admin-return-findings">
-              {product.returnInspection.findings.map((finding, index) => <li key={index}>{finding}</li>)}
-            </ul>
-          )}
-          {product.returnInspection.disposition === 'admin_review' && (
-            <div className="admin-editor-actions">
-              <button className="btn btn-primary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'donate', adminNote: draft.adminNote })}>Donate</button>
-              <button className="btn btn-secondary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'recycle', adminNote: draft.adminNote })}>Recycle</button>
-            </div>
-          )}
-          {product.returnInspection.disposition !== 'admin_review' && product.status !== 'listed' && (
-            <div className="admin-editor-actions">
-              <button className="btn btn-primary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'refurbish', adminNote: draft.adminNote })}>Relist Refurbished</button>
-              <button className="btn btn-secondary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'recycle', adminNote: draft.adminNote })}>Recycle</button>
-            </div>
-          )}
         </div>
-      )}
-      <div className="admin-editor">
-        <div className="form-group">
-          <label>Status</label>
-          <select value={draft.status} onChange={update('status')}>
-            {STATUSES.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Category</label>
-          <select value={draft.category} onChange={update('category')}>
-            {CATEGORIES.map(category => <option key={category} value={category}>{category.replace(/-/g, ' ')}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Brand</label>
-          <input value={draft.brand} onChange={update('brand')} />
-        </div>
-        <div className="form-group">
-          <label>Model</label>
-          <input value={draft.model} onChange={update('model')} />
-        </div>
-        <div className="form-group">
-          <label>Condition</label>
-          <select value={draft.condition} onChange={update('condition')}>
-            <option value="like-new">like new</option>
-            <option value="refurbished">refurbished</option>
-            <option value="used">used</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Price</label>
-          <input type="number" min="1" value={draft.recommendedPrice} onChange={update('recommendedPrice')} />
-        </div>
-        <div className="form-group admin-editor-wide">
-          <label>Return Reason</label>
-          <input value={draft.returnReason} onChange={update('returnReason')} placeholder="Reason if returned" />
-        </div>
-        <div className="form-group admin-editor-wide">
-          <label>Admin Note</label>
-          <textarea rows="2" value={draft.adminNote} onChange={update('adminNote')} />
-        </div>
-        <div className="admin-editor-actions">
-          <button className="btn btn-primary" disabled={busy} onClick={() => onSave(product.productId, payload)}>Save</button>
-          <button className="btn btn-secondary" disabled={busy} onClick={() => onReturn(product.productId, payload)}>Mark Returned</button>
-          <button className="btn btn-secondary" disabled={busy} onClick={() => onSave(product.productId, { status: 'hidden' })}>Hide</button>
-          <button className="btn btn-secondary" disabled={busy} onClick={() => onDelete(product.productId)}>Delete</button>
+
+        <div className="adm-panel">
+          <div className="adm-panel-title">Recent Audit</div>
+          <p className="adm-muted" style={{ padding: '1rem 0' }}>No recent audit entries.</p>
         </div>
       </div>
     </div>
   );
 }
 
-function ProductRow({ product, expanded, onExpand, onSave, onReturn, onResolveReturn, onDelete, busy }) {
-  return (
-    <>
-      <tr>
-        <td>
-          <button className="table-link-button" type="button" onClick={() => onExpand(product.productId)}>
-            {product.name}
-          </button>
-          <div className="admin-muted">{product.productId}</div>
-        </td>
-        <td>{product.category}</td>
-        <td><span className={`admin-status admin-status-${product.status}`}>{statusLabel(product.status)}</span></td>
-        <td>{money(product.recommendedPrice)}</td>
-        <td>{product.conditionScore ? `${product.conditionScore}/100` : 'N/A'}</td>
-        <td>{date(product.createdAt)}</td>
-        <td><Link to={`/product/${product.productId}`} target="_blank">Open</Link></td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan="7">
-            <ProductEditor
-              product={product}
-              onSave={onSave}
-              onReturn={onReturn}
-              onResolveReturn={onResolveReturn}
-              onDelete={onDelete}
-              busy={busy}
-            />
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
+// ─── Products Tab ─────────────────────────────────────────────────────────────
 
-export default function AdminDashboard() {
-  const [tab, setTab] = useState('products');
-  const [stats, setStats] = useState(null);
+function ProductsTab({ stats }) {
   const [products, setProducts] = useState([]);
-  const [filters, setFilters] = useState({ q: '', status: '', category: '' });
-  const [expandedId, setExpandedId] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [localReturns, setLocalReturns] = useState(() => readLocalReturnedPurchases());
-
-  const activeParams = useMemo(() => {
-    if (tab === 'returns') return {};
-    return Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
-  }, [filters, tab]);
+  const [msg, setMsg] = useState('');
 
   const load = async () => {
     setLoading(true);
-    setMessage('');
+    setMsg('');
     try {
-      const [nextStats, productData] = await Promise.all([
-        api.getAdminStats(),
-        tab === 'returns' ? api.getAdminReturns() : api.getAdminProducts(activeParams),
-      ]);
-      const cartReturns = tab === 'returns'
-        ? await api.getAdminCartReturns().catch(() => ({ purchases: readLocalReturnedPurchases() }))
-        : { purchases: readLocalReturnedPurchases() };
-      setStats(nextStats);
-      setProducts(productData.products || []);
-      setLocalReturns(cartReturns.purchases || []);
+      const params = statusFilter ? { status: statusFilter } : {};
+      const data = await api.getAdminProducts(params);
+      setProducts(data.products || []);
     } catch (err) {
-      setMessage(err.message || 'Could not load admin dashboard.');
+      setMsg(err.message || 'Failed to load products.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-  }, [tab]);
+  useEffect(() => { load(); }, [statusFilter]);
 
-  const saveProduct = async (productId, updates) => {
+  const handleStatusChange = async (productId, newStatus) => {
     setBusy(true);
-    setMessage('');
+    setMsg('');
     try {
-      await api.updateAdminProduct(productId, updates);
-      setMessage('Product updated.');
+      await api.updateAdminProduct(productId, { status: newStatus });
+      setMsg('Product updated.');
       await load();
     } catch (err) {
-      setMessage(err.message || 'Could not update product.');
+      setMsg(err.message || 'Failed to update product.');
     } finally {
       setBusy(false);
     }
   };
 
-  const markReturned = async (productId, updates) => {
-    setBusy(true);
-    setMessage('');
-    try {
-      await api.markAdminProductReturned(productId, updates);
-      setMessage('Product marked returned.');
-      await load();
-    } catch (err) {
-      setMessage(err.message || 'Could not mark product returned.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resolveReturn = async (productId, updates) => {
-    setBusy(true);
-    setMessage('');
-    try {
-      await api.resolveAdminReturn(productId, updates);
-      setMessage(`Return resolved as ${updates.disposition}.`);
-      await load();
-    } catch (err) {
-      setMessage(err.message || 'Could not resolve return.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resolveLocalReturn = async (purchaseId, disposition) => {
-    let resolved = null;
-    try {
-      const data = await api.resolveAdminCartReturn(purchaseId, disposition);
-      resolved = data.purchase;
-    } catch {}
-
-    const next = localReturns.map(item => item.purchaseId === purchaseId
-      ? (resolved || {
-        ...item,
-        status: disposition === 'donate' ? 'donated' : 'recycled',
-        adminResolvedAt: new Date().toISOString(),
-      })
-      : item);
-    setLocalReturns(next);
-    saveLocalReturnedPurchases(next);
-    setMessage(`Add to Cart return resolved as ${disposition}.`);
-  };
-
-  const deleteProduct = async (productId) => {
-    if (!window.confirm('Delete this product permanently?')) return;
-    setBusy(true);
-    setMessage('');
-    try {
-      await api.deleteAdminProduct(productId);
-      setExpandedId('');
-      setMessage('Product deleted.');
-      await load();
-    } catch (err) {
-      setMessage(err.message || 'Could not delete product.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const byStatus = stats?.byStatus || {};
+  const totalProducts = stats?.totalProducts ?? products.length;
 
   return (
-    <div>
-      <div className="section-header">
-        <h2>Admin Dashboard</h2>
-        <button className="btn btn-secondary" onClick={load} disabled={loading}>Refresh</button>
+    <div className="adm-tab-content">
+      <div className="adm-table-toolbar">
+        <div className="adm-filter-row">
+          <label className="adm-filter-label">Status</label>
+          <select
+            className="adm-filter-select"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="">All statuses</option>
+            {PRODUCT_STATUSES.map(s => (
+              <option key={s} value={s}>{statusLabel(s)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="adm-count-chip">{totalProducts} products</div>
       </div>
 
-      {stats && (
-        <div className="admin-stats">
-          <div className="stat-card"><div className="stat-value">{stats.totalProducts}</div><div className="stat-label">User Products</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.activeListed}</div><div className="stat-label">Existing Listings</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.returned + localReturns.length}</div><div className="stat-label">Returned Products</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.reserved}</div><div className="stat-label">User to User</div></div>
-        </div>
-      )}
+      {msg && <div className="adm-msg">{msg}</div>}
 
-      <div className="admin-tabs">
-        <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Existing User Products</button>
-        <button className={tab === 'returns' ? 'active' : ''} onClick={() => setTab('returns')}>Returned Products</button>
-      </div>
-
-      {tab === 'products' && (
-        <div className="card admin-filters">
-          <div className="form-group">
-            <label>Search</label>
-            <input value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} placeholder="Name, ID, seller" />
-          </div>
-          <div className="form-group">
-            <label>Status</label>
-            <select value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">All</option>
-              {STATUSES.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Category</label>
-            <select value={filters.category} onChange={event => setFilters({ ...filters, category: event.target.value })}>
-              <option value="">All</option>
-              {CATEGORIES.map(category => <option key={category} value={category}>{category.replace(/-/g, ' ')}</option>)}
-            </select>
-          </div>
-          <button className="btn btn-primary" onClick={load} disabled={loading}>Apply</button>
-        </div>
-      )}
-
-      {message && <div className="status-message">{message}</div>}
-      {tab === 'returns' && localReturns.length > 0 && (
-        <div className="card admin-table-card" style={{ marginBottom: '1rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Add to Cart Returned Products</h3>
-          <table className="admin-table">
+      {loading ? (
+        <p className="adm-loading">Loading products…</p>
+      ) : (
+        <div className="adm-table-wrap">
+          <table className="adm-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Damage</th>
-                <th>AI Decision</th>
-                <th>Action</th>
+                <th>PRODUCT</th>
+                <th>SELLER</th>
+                <th>STATUS</th>
+                <th>PRICE</th>
+                <th>QUALITY</th>
+                <th>ROUTE</th>
+                <th>ACTION</th>
               </tr>
             </thead>
             <tbody>
-              {localReturns.map(item => (
-                <tr key={item.purchaseId}>
-                  <td>{item.name}</td>
-                  <td>{item.productId}</td>
-                  <td><span className={`admin-status admin-status-${item.status}`}>{statusLabel(item.status)}</span></td>
-                  <td>{item.aiReturnInspection?.damagePercent ?? 0}%</td>
-                  <td>{item.aiReturnInspection?.disposition || 'N/A'}</td>
+              {products.map(p => (
+                <tr key={p.productId}>
                   <td>
-                    {item.status === 'admin_review' ? (
-                      <div className="admin-editor-actions">
-                        <button className="btn btn-primary" onClick={() => resolveLocalReturn(item.purchaseId, 'donate')}>Donate</button>
-                        <button className="btn btn-secondary" onClick={() => resolveLocalReturn(item.purchaseId, 'recycle')}>Recycle</button>
-                      </div>
-                    ) : (
-                      <span className="admin-muted">{item.aiReturnInspection?.recommendation || 'Resolved'}</span>
-                    )}
+                    <div className="adm-cell-primary">{p.name}</div>
+                    <div className="adm-cell-sub">{p.productId}</div>
+                  </td>
+                  <td>{p.sellerName || p.sellerId || '—'}</td>
+                  <td><StatusBadge status={p.status} /></td>
+                  <td>{money(p.recommendedPrice)}</td>
+                  <td>{p.conditionScore ? `${p.conditionScore === 'A' || p.conditionScore === 'B' || p.conditionScore === 'C' || p.conditionScore === 'D' ? p.conditionScore : p.grade || '—'} / ${p.conditionScore}` : (p.grade ? `${p.grade} / —` : '—')}</td>
+                  <td>{p.routingDestination || 'unknown'}</td>
+                  <td>
+                    <ActionSelect
+                      value={p.status}
+                      options={PRODUCT_STATUSES}
+                      onChange={val => handleStatusChange(p.productId, val)}
+                      busy={busy}
+                    />
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {loading ? (
-        <p style={{ padding: '2rem', color: 'var(--gray-500)' }}>Loading admin data...</p>
-      ) : (
-        <div className="card admin-table-card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Price</th>
-                <th>Quality</th>
-                <th>Created</th>
-                <th>View</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map(product => (
-                <ProductRow
-                  key={product.productId}
-                  product={product}
-                  expanded={expandedId === product.productId}
-                  onExpand={id => setExpandedId(expandedId === id ? '' : id)}
-                  onSave={saveProduct}
-                  onReturn={markReturned}
-                  onResolveReturn={resolveReturn}
-                  onDelete={deleteProduct}
-                  busy={busy}
-                />
-              ))}
-              {!products.length && (
+              {products.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '2rem' }}>
-                    No products found.
-                  </td>
+                  <td colSpan={7} className="adm-empty">No products found.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Transactions Tab ─────────────────────────────────────────────────────────
+
+function TransactionsTab() {
+  const [transactions, setTransactions] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setMsg('');
+    try {
+      const data = await api.getAdminTransactions();
+      setTransactions(data.transactions || []);
+    } catch (err) {
+      setMsg(err.message || 'Failed to load transactions.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleStatusChange = async (transactionId, newStatus) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      await api.updateAdminTransaction(transactionId, { status: newStatus });
+      setMsg('Transaction updated.');
+      await load();
+    } catch (err) {
+      setMsg(err.message || 'Failed to update transaction.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const filtered = statusFilter
+    ? transactions.filter(t => t.status === statusFilter)
+    : transactions;
+
+  return (
+    <div className="adm-tab-content">
+      <div className="adm-table-toolbar">
+        <div className="adm-filter-row">
+          <label className="adm-filter-label">Status</label>
+          <select
+            className="adm-filter-select"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="">All statuses</option>
+            {TXN_STATUSES.map(s => (
+              <option key={s} value={s}>{statusLabel(s)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="adm-count-chip">{filtered.length} transactions</div>
+      </div>
+
+      {msg && <div className="adm-msg">{msg}</div>}
+
+      {loading ? (
+        <p className="adm-loading">Loading transactions…</p>
+      ) : (
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>TRANSACTION</th>
+                <th>SELLER</th>
+                <th>BUYER</th>
+                <th>STATUS</th>
+                <th>PRICE</th>
+                <th>CREATED</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t => (
+                <tr key={t.transactionId}>
+                  <td>
+                    <div className="adm-cell-primary">{t.productName}</div>
+                    <div className="adm-cell-sub">{t.transactionId}</div>
+                    <span className={`adm-type-badge adm-type-${t.type || 'reservation'}`}>
+                      {t.type === 'cart_purchase' ? 'Cart Order' : 'Reservation'}
+                    </span>
+                  </td>
+                  <td className="adm-link-cell">{t.sellerName}</td>
+                  <td className="adm-link-cell">{t.buyerName}</td>
+                  <td><StatusBadge status={t.status} /></td>
+                  <td>{money(t.price)}</td>
+                  <td className="adm-date-cell">{fmtDate(t.createdAt)}</td>
+                  <td>
+                    <ActionSelect
+                      value={t.status}
+                      options={TXN_STATUSES}
+                      onChange={val => handleStatusChange(t.transactionId, val)}
+                      busy={busy}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="adm-empty">No transactions found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Users Tab ────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    api.getAdminUsers()
+      .then(data => setUsers(data.users || []))
+      .catch(err => setMsg(err.message || 'Failed to load users.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="adm-tab-content">
+      {msg && <div className="adm-msg">{msg}</div>}
+      {loading ? (
+        <p className="adm-loading">Loading users…</p>
+      ) : (
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>USER</th>
+                <th>EMAIL</th>
+                <th>ROLE</th>
+                <th>PRODUCTS</th>
+                <th>CREDITS</th>
+                <th>JOINED</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.userId}>
+                  <td>
+                    <div className="adm-cell-primary">{u.name}</div>
+                    <div className="adm-cell-sub">{u.userId}</div>
+                  </td>
+                  <td className="adm-link-cell">{u.email}</td>
+                  <td><StatusBadge status={u.role} /></td>
+                  <td>{u.productCount}</td>
+                  <td>{u.credits} / {u.tier}</td>
+                  <td className="adm-date-cell">{fmtDate(u.createdAt)}</td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="adm-empty">No users found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Audit Tab ────────────────────────────────────────────────────────────────
+
+function AuditTab() {
+  return (
+    <div className="adm-tab-content">
+      <div className="adm-panel" style={{ marginTop: 0 }}>
+        <div className="adm-panel-title">Audit Log</div>
+        <p className="adm-muted" style={{ padding: '1rem 0' }}>No audit entries to display.</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
+
+export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState('overview');
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  useEffect(() => {
+    api.getAdminStats()
+      .then(data => setStats(data))
+      .catch(() => {})
+      .finally(() => setLoadingStats(false));
+  }, []);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const handleRefresh = () => {
+    setLoadingStats(true);
+    api.getAdminStats()
+      .then(data => setStats(data))
+      .catch(() => {})
+      .finally(() => setLoadingStats(false));
+  };
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'products', label: 'Products' },
+    { id: 'transactions', label: 'Transactions' },
+    { id: 'users', label: 'Users' },
+    { id: 'audit', label: 'Audit' },
+  ];
+
+  return (
+    <div className="adm-root">
+      {/* Header */}
+      <header className="adm-header">
+        <div className="adm-header-left">
+          <div className="adm-logo">ReCircle Admin</div>
+          <div className="adm-logo-sub">Hackathon operations dashboard</div>
+        </div>
+        <div className="adm-header-right">
+          <span className="adm-user-name">{user.name || 'Admin User'}</span>
+          <button className="adm-signout-btn" onClick={handleSignOut}>Sign out</button>
+        </div>
+      </header>
+
+      {/* Nav bar */}
+      <div className="adm-navbar">
+        <div className="adm-tabs">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              className={`adm-tab-btn${tab === t.id ? ' active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="adm-navbar-right">
+          <input
+            className="adm-search"
+            placeholder="Search products, buyers, sellers"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <button className="adm-refresh-btn" onClick={handleRefresh} disabled={loadingStats}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <main className="adm-main">
+        {tab === 'overview' && <OverviewTab stats={stats} />}
+        {tab === 'products' && <ProductsTab stats={stats} />}
+        {tab === 'transactions' && <TransactionsTab />}
+        {tab === 'users' && <UsersTab />}
+        {tab === 'audit' && <AuditTab />}
+      </main>
     </div>
   );
 }
