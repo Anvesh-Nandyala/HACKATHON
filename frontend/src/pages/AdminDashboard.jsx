@@ -140,6 +140,8 @@ function ProductsTab({ stats }) {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
+  const [mediaUrls, setMediaUrls] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -168,6 +170,33 @@ function ProductsTab({ stats }) {
       setMsg(err.message || 'Failed to update product.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const toggleExpand = async (p) => {
+    if (expandedId === p.productId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(p.productId);
+    
+    if (!mediaUrls[p.productId] && p.media && (p.media.hasVideo || p.media.imageCount > 0)) {
+      const urls = { images: [], video: null };
+      try {
+        if (p.media.hasVideo) {
+          urls.video = await api.getAdminMediaUrl(p.productId, 'video');
+        }
+        if (p.media.imageCount > 0) {
+          for (let i = 0; i < p.media.imageCount; i++) {
+            const url = await api.getAdminMediaUrl(p.productId, 'images', i);
+            urls.images.push(url);
+          }
+        }
+        setMediaUrls(prev => ({ ...prev, [p.productId]: urls }));
+      } catch (err) {
+        console.error('Failed to load media for admin', err);
+        setMediaUrls(prev => ({ ...prev, [p.productId]: { error: true } }));
+      }
     }
   };
 
@@ -213,25 +242,65 @@ function ProductsTab({ stats }) {
             </thead>
             <tbody>
               {products.map(p => (
-                <tr key={p.productId}>
-                  <td>
-                    <div className="adm-cell-primary">{p.name}</div>
-                    <div className="adm-cell-sub">{p.productId}</div>
-                  </td>
-                  <td>{p.sellerName || p.sellerId || '—'}</td>
-                  <td><StatusBadge status={p.status} /></td>
-                  <td>{money(p.recommendedPrice)}</td>
-                  <td>{p.conditionScore ? `${p.conditionScore === 'A' || p.conditionScore === 'B' || p.conditionScore === 'C' || p.conditionScore === 'D' ? p.conditionScore : p.grade || '—'} / ${p.conditionScore}` : (p.grade ? `${p.grade} / —` : '—')}</td>
-                  <td>{p.routingDestination || 'unknown'}</td>
-                  <td>
-                    <ActionSelect
-                      value={p.status}
-                      options={PRODUCT_STATUSES}
-                      onChange={val => handleStatusChange(p.productId, val)}
-                      busy={busy}
-                    />
-                  </td>
-                </tr>
+                <React.Fragment key={p.productId}>
+                  <tr onClick={() => toggleExpand(p)} style={{ cursor: 'pointer' }}>
+                    <td>
+                      <div className="adm-cell-primary">{p.name}</div>
+                      <div className="adm-cell-sub">{p.productId}</div>
+                    </td>
+                    <td>{p.sellerName || p.sellerId || '—'}</td>
+                    <td><StatusBadge status={p.status} /></td>
+                    <td>{money(p.recommendedPrice)}</td>
+                    <td>{p.conditionScore ? `${p.conditionScore === 'A' || p.conditionScore === 'B' || p.conditionScore === 'C' || p.conditionScore === 'D' ? p.conditionScore : p.grade || '—'} / ${p.conditionScore}` : (p.grade ? `${p.grade} / —` : '—')}</td>
+                    <td>{p.routingDestination || 'unknown'}</td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <ActionSelect
+                        value={p.status}
+                        options={PRODUCT_STATUSES}
+                        onChange={val => handleStatusChange(p.productId, val)}
+                        busy={busy}
+                      />
+                    </td>
+                  </tr>
+                  {expandedId === p.productId && (
+                    <tr className="adm-expanded-row">
+                      <td colSpan={7}>
+                        <div className="adm-product-details" style={{ padding: '1rem', background: 'var(--gray-50)', borderRadius: '4px', margin: '0.5rem 0' }}>
+                          <h4 style={{ marginBottom: '0.5rem' }}>Product Details</h4>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                            <div><strong>Brand:</strong> {p.brand || '—'}</div>
+                            <div><strong>Model:</strong> {p.model || '—'}</div>
+                            <div><strong>Category:</strong> {p.category || '—'}</div>
+                            <div><strong>Condition:</strong> {p.condition || '—'}</div>
+                            <div><strong>Original Price:</strong> {money(p.originalPrice)}</div>
+                            <div><strong>Pickup Address:</strong> {p.pickupAddress || '—'}</div>
+                            <div style={{ gridColumn: '1 / -1' }}><strong>Description:</strong> {p.description || '—'}</div>
+                            {p.returnReason && <div style={{ gridColumn: '1 / -1', color: '#dc2626' }}><strong>Return Reason:</strong> {p.returnReason}</div>}
+                            {p.adminNote && <div style={{ gridColumn: '1 / -1', color: '#047857' }}><strong>Admin Note:</strong> {p.adminNote}</div>}
+                          </div>
+                          
+                          {(p.media?.hasVideo || p.media?.imageCount > 0) ? (
+                            <div>
+                              <h4 style={{ marginBottom: '0.5rem' }}>Media</h4>
+                              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                {mediaUrls[p.productId]?.video && (
+                                  <video src={mediaUrls[p.productId].video} controls style={{ height: '150px', borderRadius: '4px' }} />
+                                )}
+                                {mediaUrls[p.productId]?.images?.map((url, i) => (
+                                  <img key={i} src={url} alt={`Product ${i}`} style={{ height: '150px', borderRadius: '4px', objectFit: 'cover' }} />
+                                ))}
+                                {mediaUrls[p.productId]?.error && <div style={{ fontSize: '0.85rem', color: '#dc2626' }}>Media unavailable.</div>}
+                                {!mediaUrls[p.productId] && <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Loading media...</div>}
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>No media attached.</div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
               {products.length === 0 && (
                 <tr>
