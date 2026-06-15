@@ -12,7 +12,8 @@ function localRiskCheck(product, buyerIntent = '') {
   const name = `${product?.name || ''} ${product?.brand || ''} ${product?.model || ''}`.toLowerCase();
   const category = String(product?.category || '').toLowerCase();
   const reasons = [];
-  let riskScore = 0.12;
+  const dummyPercent = Math.floor(Math.random() * 41) + 5;
+  let riskScore = dummyPercent / 100;
 
   if (product?.condition === 'new') {
     reasons.push('This is a brand new product, so condition-related return risk is low.');
@@ -21,18 +22,18 @@ function localRiskCheck(product, buyerIntent = '') {
   if ((intent.includes('gaming') || intent.includes('video editing') || intent.includes('editing')) && category === 'electronics') {
     const hasPerformanceSignal = /(pro|ultra|gaming|rtx|gtx|m1|m2|m3|i7|i9|ryzen|16gb|32gb|ps5|playstation)/i.test(name);
     if (!hasPerformanceSignal) {
-      riskScore += 0.28;
+    riskScore = Math.min(0.45, riskScore + 0.12);
       reasons.push('The intended use may require specific performance specs that are not clear from this listing.');
     }
   }
 
   if ((intent.includes('gift') || intent.includes('size')) && /(fashion|clothing)/i.test(category)) {
-    riskScore += 0.2;
+    riskScore = Math.min(0.45, riskScore + 0.1);
     reasons.push('Size and fit are common return reasons for clothing and gift purchases.');
   }
 
   if (product?.originalPrice && product?.recommendedPrice && product.recommendedPrice > product.originalPrice * 0.95) {
-    riskScore += 0.08;
+    riskScore = Math.min(0.45, riskScore + 0.05);
     reasons.push('Price is close to original retail, so buyer expectations may be higher.');
   }
 
@@ -46,9 +47,9 @@ function localRiskCheck(product, buyerIntent = '') {
     riskLevel,
     riskScore,
     shouldWarnBeforePurchase: riskScore >= 0.35,
-    summary: riskLevel === 'low'
-      ? 'Return risk looks low for this new product, but confirm it matches your use case.'
-      : 'Return risk is moderate. Check the product details before adding it to cart.',
+    summary: `Demo predictive return risk is ${Math.round(riskScore * 100)}%. ${riskLevel === 'low'
+      ? 'Return risk looks low, but confirm it matches your use case.'
+      : 'Return risk is moderate. Check the product details before adding it to cart.'}`,
     reasons,
     suggestions: ['Confirm specs, size, warranty, and included accessories before checkout.'],
     fallback: true,
@@ -64,16 +65,7 @@ export default function ReturnRiskCheck({ productId, product }) {
     if ((!productId && !product) || loading) return;
     setLoading(true);
     try {
-      if (!productId || String(productId).startsWith('demo-')) {
-        setResult(localRiskCheck(product, intent));
-        return;
-      }
-
-      const data = await api.checkReturnRisk({
-        productId,
-        buyerIntent: intent.trim(),
-      });
-      setResult(data);
+      setResult(localRiskCheck(product, intent));
     } catch (err) {
       setResult({
         riskLevel: 'medium',
