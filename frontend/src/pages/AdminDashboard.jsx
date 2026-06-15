@@ -34,6 +34,20 @@ function statusLabel(status) {
   return String(status || 'unknown').replace(/_/g, ' ');
 }
 
+function readLocalReturnedPurchases() {
+  return JSON.parse(localStorage.getItem('demo_purchased_products') || '[]')
+    .filter(item => ['refurbished', 'recycled', 'admin_review', 'donated'].includes(item.status));
+}
+
+function saveLocalReturnedPurchases(items) {
+  const all = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+  const returnedIds = new Set(items.map(item => item.purchaseId));
+  const merged = all.map(item => returnedIds.has(item.purchaseId)
+    ? items.find(next => next.purchaseId === item.purchaseId)
+    : item);
+  localStorage.setItem('demo_purchased_products', JSON.stringify(merged));
+}
+
 function AdminMediaPreview({ product }) {
   const [media, setMedia] = useState({ images: [], video: '' });
   const [loading, setLoading] = useState(false);
@@ -267,6 +281,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [localReturns, setLocalReturns] = useState(() => readLocalReturnedPurchases());
 
   const activeParams = useMemo(() => {
     if (tab === 'returns') return {};
@@ -336,6 +351,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const resolveLocalReturn = (purchaseId, disposition) => {
+    const next = localReturns.map(item => item.purchaseId === purchaseId
+      ? {
+        ...item,
+        status: disposition === 'donate' ? 'donated' : 'recycled',
+        adminResolvedAt: new Date().toISOString(),
+      }
+      : item);
+    setLocalReturns(next);
+    saveLocalReturnedPurchases(next);
+    setMessage(`Add to Cart return resolved as ${disposition}.`);
+  };
+
   const deleteProduct = async (productId) => {
     if (!window.confirm('Delete this product permanently?')) return;
     setBusy(true);
@@ -363,7 +391,7 @@ export default function AdminDashboard() {
         <div className="admin-stats">
           <div className="stat-card"><div className="stat-value">{stats.totalProducts}</div><div className="stat-label">User Products</div></div>
           <div className="stat-card"><div className="stat-value">{stats.activeListed}</div><div className="stat-label">Existing Listings</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.returned}</div><div className="stat-label">Returned Products</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.returned + localReturns.length}</div><div className="stat-label">Returned Products</div></div>
           <div className="stat-card"><div className="stat-value">{stats.reserved}</div><div className="stat-label">User to User</div></div>
         </div>
       )}
@@ -398,6 +426,44 @@ export default function AdminDashboard() {
       )}
 
       {message && <div className="status-message">{message}</div>}
+      {tab === 'returns' && localReturns.length > 0 && (
+        <div className="card admin-table-card" style={{ marginBottom: '1rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Add to Cart Returned Products</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Damage</th>
+                <th>AI Decision</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {localReturns.map(item => (
+                <tr key={item.purchaseId}>
+                  <td>{item.name}</td>
+                  <td>{item.productId}</td>
+                  <td><span className={`admin-status admin-status-${item.status}`}>{statusLabel(item.status)}</span></td>
+                  <td>{item.aiReturnInspection?.damagePercent ?? 0}%</td>
+                  <td>{item.aiReturnInspection?.disposition || 'N/A'}</td>
+                  <td>
+                    {item.status === 'admin_review' ? (
+                      <div className="admin-editor-actions">
+                        <button className="btn btn-primary" onClick={() => resolveLocalReturn(item.purchaseId, 'donate')}>Donate</button>
+                        <button className="btn btn-secondary" onClick={() => resolveLocalReturn(item.purchaseId, 'recycle')}>Recycle</button>
+                      </div>
+                    ) : (
+                      <span className="admin-muted">{item.aiReturnInspection?.recommendation || 'Resolved'}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {loading ? (
         <p style={{ padding: '2rem', color: 'var(--gray-500)' }}>Loading admin data...</p>
       ) : (

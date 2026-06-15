@@ -11,12 +11,13 @@ export default function RefurbishedRecommendations() {
 
   useEffect(() => {
     let mounted = true;
+    const localRefurbished = JSON.parse(localStorage.getItem('demo_refurbished_products') || '[]');
     api.getRefurbishedRecommendations()
       .then(data => {
-        if (mounted) setItems(data.items || []);
+        if (mounted) setItems([...localRefurbished, ...(data.items || [])]);
       })
       .catch(() => {
-        if (mounted) setItems([]);
+        if (mounted) setItems(localRefurbished);
       });
     return () => {
       mounted = false;

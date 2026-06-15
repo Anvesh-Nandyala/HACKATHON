@@ -12,6 +12,24 @@ function saveCart(items) {
   window.dispatchEvent(new Event('cart-updated'));
 }
 
+function savePurchasedProducts(items) {
+  const existing = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+  const purchasedAt = new Date().toISOString();
+  const purchases = items.map(item => ({
+    purchaseId: `${item.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    productId: String(item.id).startsWith('demo-') ? item.id : `demo-${item.id}`,
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    price: item.price,
+    quantity: item.quantity || 1,
+    purchasedAt,
+    returnDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'purchased',
+  }));
+  localStorage.setItem('demo_purchased_products', JSON.stringify([...purchases, ...existing]));
+}
+
 export default function Checkout() {
   const [items, setItems] = useState(() => readCart());
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -45,6 +63,7 @@ export default function Checkout() {
 
   const placeOrder = () => {
     if (!items.length) return;
+    savePurchasedProducts(items);
     saveCart([]);
     setItems([]);
     setOrderPlaced(true);
@@ -59,7 +78,7 @@ export default function Checkout() {
 
       {orderPlaced && (
         <div className="status-message">
-          Order placed. Your demo cart is now empty.
+          Order placed. Purchased product IDs are saved in My Products.
         </div>
       )}
 

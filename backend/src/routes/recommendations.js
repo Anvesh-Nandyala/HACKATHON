@@ -97,8 +97,8 @@ router.get('/refurbished', async (req, res, next) => {
 
     let items = listed
       .filter(product => {
-        const destination = product.routingDecision?.destination;
-        return destination === 'refurbish' || destination === 'resell' || product.condition === 'refurbished';
+        return product.condition === 'refurbished'
+          && (product.refurbishedAt || product.returnInspection || product.returnedAt || product.refurbishedTag);
       })
       .map(toRecommendationItem);
 
