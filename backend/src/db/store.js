@@ -49,17 +49,6 @@ const store = {
     return getItem(`USER#${record.userId}`, 'PROFILE');
   },
 
-  async getAllUsers() {
-    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-    const { docClient, TABLE_NAME } = require('./dynamodb');
-    const { Items } = await docClient.send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
-      ExpressionAttributeValues: { ':sk': 'PROFILE', ':pk': 'USER#' },
-    }));
-    return Items || [];
-  },
-
   // ─── Product operations ───
 
   async saveProduct(product) {
@@ -157,17 +146,6 @@ const store = {
     );
   },
 
-  async getAllTransactions() {
-    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-    const { docClient, TABLE_NAME } = require('./dynamodb');
-    const { Items } = await docClient.send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
-      ExpressionAttributeValues: { ':sk': 'METADATA', ':pk': 'TXN#' },
-    }));
-    return Items || [];
-  },
-
   // ─── Credits operations ───
 
   async getUserCredits(userId) {
@@ -199,17 +177,6 @@ const store = {
       updatedAt: new Date().toISOString(),
     };
     await putItem(item);
-  },
-
-  async getAllCredits() {
-    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-    const { docClient, TABLE_NAME } = require('./dynamodb');
-    const { Items } = await docClient.send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
-      ExpressionAttributeValues: { ':sk': 'CREDITS', ':pk': 'USER#' },
-    }));
-    return Items || [];
   },
 
   // ─── Hub operations ───
@@ -347,17 +314,6 @@ const store = {
       ExpressionAttributeValues: { ':sk': 'METADATA', ':pk': 'CARTPURCHASE#' },
     }));
     return (Items || []).filter(item => ['refurbished', 'recycled', 'admin_review', 'donated'].includes(item.status));
-  },
-
-  async getAllCartPurchases() {
-    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-    const { docClient, TABLE_NAME } = require('./dynamodb');
-    const { Items } = await docClient.send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
-      ExpressionAttributeValues: { ':sk': 'METADATA', ':pk': 'CARTPURCHASE#' },
-    }));
-    return Items || [];
   },
 
   // ─── WebSocket connection operations ───

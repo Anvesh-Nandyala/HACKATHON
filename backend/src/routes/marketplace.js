@@ -23,7 +23,6 @@ const PRODUCT_CACHE_TTL = 180;   // 180 seconds
 function buildNearbyCacheKey(query) {
   const geohash4 = ngeohash.encode(query.latitude, query.longitude, 4);
   const filters = JSON.stringify({
-    q: query.q,
     radiusKm: query.radiusKm,
     category: query.category,
     priceRange: query.priceRange,
@@ -43,7 +42,6 @@ function buildNearbyCacheKey(query) {
 router.get('/nearby', async (req, res, next) => {
   try {
     const query = DiscoveryQuerySchema.parse({
-      q: req.query.q || undefined,
       latitude: parseFloat(req.query.latitude),
       longitude: parseFloat(req.query.longitude),
       radiusKm: req.query.radiusKm ? parseFloat(req.query.radiusKm) : undefined,
@@ -78,54 +76,6 @@ router.get('/nearby', async (req, res, next) => {
     res.set('x-cache', 'MISS');
     res.set('Cache-Control', `public, max-age=30`);
     res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * GET /api/marketplace/search
- * Full-text search across all products. No geo filter applied.
- */
-router.get('/search', async (req, res, next) => {
-  try {
-    const q = (req.query.q || '').toLowerCase().trim();
-    const category = req.query.category || null;
-
-    if (!q) return res.json({ products: [], totalCount: 0 });
-
-    const all = await store.getAllProducts();
-
-    const results = all
-      .filter(p => ['listed', 'verified'].includes(p.status))
-      .filter(p => {
-        if (category && p.category !== category) return false;
-        const hay = `${p.brand || ''} ${p.model || ''} ${p.category || ''} ${p.description || ''}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .slice(0, 50)
-      .map(p => ({
-        productId: p.productId,
-        name: p.brand ? (p.model ? `${p.brand} ${p.model}` : p.brand) : p.category,
-        category: p.category,
-        brand: p.brand,
-        model: p.model,
-        condition: p.condition || 'used',
-        originalPrice: p.originalPrice,
-        recommendedPrice: p.priceEstimate?.recommendedPrice,
-        grade: p.verification?.grade,
-        conditionScore: p.verification?.conditionScore,
-        description: p.description,
-        imageKeys: p.mediaKeys?.images?.slice(0, 3),
-        location: {
-          latitude: p.location?.latitude,
-          longitude: p.location?.longitude,
-          city: p.location?.city,
-        },
-        createdAt: p.createdAt,
-      }));
-
-    res.json({ products: results, totalCount: results.length });
   } catch (err) {
     next(err);
   }
@@ -231,7 +181,6 @@ router.get('/product/:productId', async (req, res, next) => {
 
     const result = {
       productId: product.productId,
-      name: product.brand ? (product.model ? `${product.brand} ${product.model}` : product.brand) : product.category,
       category: product.category,
       brand: product.brand,
       model: product.model,

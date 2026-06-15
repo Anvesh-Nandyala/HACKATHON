@@ -83,10 +83,6 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return request(`/marketplace/nearby?${query}`);
   },
-  searchProducts: (params) => {
-    const query = new URLSearchParams(params).toString();
-    return request(`/marketplace/search?${query}`);
-  },
   getMarketStats: () => request('/marketplace/stats'),
   getBatchStatus: () => request('/marketplace/batch-status'),
   getProductDetail: (id) => request(`/marketplace/product/${id}`),
@@ -135,7 +131,4 @@ export const api = {
   markAdminProductReturned: (id, data) => request(`/admin/products/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
   resolveAdminReturn: (id, data) => request(`/admin/products/${id}/return-disposition`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAdminProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),
-  getAdminUsers: () => request('/admin/users'),
-  getAdminTransactions: () => request('/admin/transactions'),
-  updateAdminTransaction: (id, data) => request(`/admin/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 };

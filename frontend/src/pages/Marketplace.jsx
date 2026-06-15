@@ -48,40 +48,31 @@ export default function Marketplace({ user, buyerLocation }) {
   const search = async (nextFilters = filters) => {
     setLoading(true);
     setMessage('');
-    const cacheKey = `marketplace:search:${JSON.stringify(nextFilters)}`;
+    const cacheKey = `marketplace:nearby:${JSON.stringify(nextFilters)}`;
 
     try {
-      let items = [];
-      let count = 0;
+      const params = {
+        latitude: nextFilters.latitude,
+        longitude: nextFilters.longitude,
+        radiusKm: nextFilters.radiusKm,
+        sortBy: nextFilters.sortBy,
+        limit: 40,
+      };
+      if (nextFilters.category) params.category = nextFilters.category;
 
-      if (nextFilters.q && nextFilters.q.trim()) {
-        // Full text search — no geo filter
-        const params = { q: nextFilters.q.trim() };
-        if (nextFilters.category) params.category = nextFilters.category;
-        const result = await api.searchProducts(params);
-        items = result.products || [];
-        count = result.totalCount || items.length;
-      } else {
-        // Geo-based browse
-        const params = {
-          latitude: nextFilters.latitude,
-          longitude: nextFilters.longitude,
-          radiusKm: nextFilters.radiusKm,
-          sortBy: nextFilters.sortBy,
-          limit: 40,
-        };
-        if (nextFilters.category) params.category = nextFilters.category;
-        const result = await api.discoverNearby(params);
-        items = result.products || [];
-        count = result.totalCount || items.length;
+      const result = await api.discoverNearby(params);
+      let items = result.products || [];
+      if (nextFilters.q) {
+        const query = nextFilters.q.toLowerCase();
+        items = items.filter(p => productName(p).toLowerCase().includes(query) || p.category.toLowerCase().includes(query));
       }
-
       setProducts(items);
-      setTotalCount(count);
+      setTotalCount(items.length);
       setIsStale(false);
       setLastUpdated(new Date());
       cacheResponse(cacheKey, items, 60000);
     } catch (err) {
+      // Fallback to cached data
       const cached = getCached(cacheKey);
       if (cached && cached.data) {
         setProducts(cached.data);
