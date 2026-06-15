@@ -256,8 +256,8 @@ export default function ProductDetail({ user }) {
             {isDemo ? 'Ships from ReCircle' : 'Self-pickup / No shipping fees / Meet locally'}
           </p>
 
-          {!isDemo && product?.productId && product.status === 'listed' && (
-            <ReturnRiskCheck productId={product.productId} />
+          {product?.productId && product.status === 'listed' && (
+            <ReturnRiskCheck productId={product.productId} product={product} />
           )}
 
           {isAvailable ? (
