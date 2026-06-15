@@ -29,6 +29,7 @@ const ProductSubmissionSchema = z.object({
 });
 
 const DiscoveryQuerySchema = z.object({
+  q: z.string().optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   radiusKm: z.number().positive().max(50).default(5),

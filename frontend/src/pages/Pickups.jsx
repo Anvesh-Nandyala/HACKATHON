@@ -57,10 +57,28 @@ export default function Pickups() {
     }
   };
 
+  const cancelReservation = async (transactionId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to cancel this reservation?')) return;
+    
+    setWorkingId(transactionId);
+    setMessage('');
+    try {
+      await api.cancelTransaction(transactionId);
+      setMessage('Reservation cancelled successfully.');
+      loadTransactions();
+    } catch (err) {
+      setMessage(err.message || 'Could not cancel reservation.');
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
   if (loading) return <p>Loading pickups...</p>;
 
-  const buying = transactions.filter(item => item.role === 'buyer');
-  const selling = transactions.filter(item => item.role === 'seller');
+  const buying = transactions.filter(item => item.role === 'buyer' && item.status !== 'cancelled');
+  const selling = transactions.filter(item => item.role === 'seller' && item.status !== 'cancelled');
 
   return (
     <div>
@@ -102,6 +120,14 @@ export default function Pickups() {
                   <div className="otp-box">
                     <span>Share this OTP with seller</span>
                     <strong>{transaction.pickupOtp}</strong>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ marginTop: '0.75rem', width: '100%' }}
+                      onClick={(e) => cancelReservation(transaction.transactionId, e)}
+                      disabled={workingId === transaction.transactionId}
+                    >
+                      {workingId === transaction.transactionId ? 'Cancelling...' : 'Unreserve'}
+                    </button>
                   </div>
                 )}
               </Link>

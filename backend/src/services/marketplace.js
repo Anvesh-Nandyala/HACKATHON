@@ -50,7 +50,7 @@ function encodeGeohash(latitude, longitude, precision = 6) {
  * Discover nearby products within a radius.
  */
 async function discoverNearby(query) {
-  const { latitude, longitude, radiusKm = 5, category, priceRange, minCondition, sortBy = 'distance', limit = 20, cursor } = query;
+  const { q, latitude, longitude, radiusKm = 5, category, priceRange, minCondition, sortBy = 'distance', limit = 20, cursor } = query;
 
   // Calculate geohash prefix (4 chars for ~20km precision)
   const geohashPrefix = ngeohash.encode(latitude, longitude, 4);
@@ -64,7 +64,8 @@ async function discoverNearby(query) {
     allProducts.push(...products);
   }
 
-  // Precise distance filtering
+  // Precise distance filtering and search text filtering
+  const qLower = q ? q.toLowerCase() : null;
   const productsWithDistance = allProducts
     .map(product => ({
       ...product,
@@ -73,7 +74,12 @@ async function discoverNearby(query) {
         product.location.latitude, product.location.longitude
       ),
     }))
-    .filter(p => p.distance <= radiusKm);
+    .filter(p => p.distance <= radiusKm)
+    .filter(p => {
+      if (!qLower) return true;
+      const searchableText = `${p.brand || ''} ${p.model || ''} ${p.category || ''} ${p.description || ''}`.toLowerCase();
+      return searchableText.includes(qLower);
+    });
 
   // Sort
   const sorted = sortProducts(productsWithDistance, sortBy);
@@ -93,6 +99,7 @@ async function discoverNearby(query) {
   return {
     products: paginated.map(p => ({
       productId: p.productId,
+      name: p.brand ? (p.model ? `${p.brand} ${p.model}` : p.brand) : p.category,
       category: p.category,
       brand: p.brand,
       model: p.model,

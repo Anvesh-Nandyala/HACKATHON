@@ -113,20 +113,33 @@ router.use(requireAdmin);
 
 router.get('/stats', async (req, res, next) => {
   try {
-    const products = await store.getAllProducts();
+    const [products, users, transactions, cartPurchases] = await Promise.all([
+      store.getAllProducts(),
+      store.getAllUsers(),
+      store.getAllTransactions(),
+      store.getAllCartPurchases(),
+    ]);
     const byStatus = {};
     const byCategory = {};
     for (const product of products) {
       byStatus[product.status] = (byStatus[product.status] || 0) + 1;
       byCategory[product.category] = (byCategory[product.category] || 0) + 1;
     }
+    const completedTxns = transactions.filter(t => t.status === 'completed');
+    const completedValue = completedTxns.reduce((sum, t) => sum + (t.agreedPrice || 0), 0);
+    const cartValue = cartPurchases.reduce((sum, cp) => sum + ((cp.price || 0) * (cp.quantity || 1)), 0);
 
     res.json({
+      totalUsers: users.length,
       totalProducts: products.length,
       activeListed: byStatus.listed || 0,
       returned: products.filter(product => product.returnInspection || product.returnedAt).length,
       reserved: byStatus.reserved || 0,
       sold: byStatus.sold || 0,
+      totalTransactions: transactions.length + cartPurchases.length,
+      completedTransactions: completedTxns.length,
+      cartPurchases: cartPurchases.length,
+      completedValue: completedValue + cartValue,
       byStatus,
       byCategory,
     });
@@ -137,9 +150,17 @@ router.get('/stats', async (req, res, next) => {
 
 router.get('/products', async (req, res, next) => {
   try {
-    const products = filterProducts(await store.getAllProducts(), req.query)
+    const [allProducts, allUsers] = await Promise.all([
+      store.getAllProducts(),
+      store.getAllUsers(),
+    ]);
+    const userMap = {};
+    for (const user of allUsers) {
+      userMap[user.userId] = user.name || user.email || user.userId;
+    }
+    const products = filterProducts(allProducts, req.query)
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-      .map(serializeProduct);
+      .map(p => ({ ...serializeProduct(p), sellerName: userMap[p.userId] || p.userId }));
 
     res.json({ products, count: products.length });
   } catch (err) {
@@ -325,6 +346,112 @@ router.delete('/products/:productId', async (req, res, next) => {
 
     await store.deleteProduct(req.params.productId);
     res.json({ productId: req.params.productId, deleted: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/users', async (req, res, next) => {
+  try {
+    const [users, allProducts, allCredits] = await Promise.all([
+      store.getAllUsers(),
+      store.getAllProducts(),
+      store.getAllCredits(),
+    ]);
+    const productCountByUser = {};
+    for (const p of allProducts) {
+      if (p.userId) productCountByUser[p.userId] = (productCountByUser[p.userId] || 0) + 1;
+    }
+    const creditsByUser = {};
+    for (const c of allCredits) {
+      creditsByUser[c.userId] = c;
+    }
+    const result = users
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .map(user => ({
+        userId: user.userId,
+        name: user.name || user.email?.split('@')[0] || 'Unknown',
+        email: user.email,
+        role: user.role || 'seller',
+        productCount: productCountByUser[user.userId] || 0,
+        credits: creditsByUser[user.userId]?.totalCredits || 0,
+        tier: creditsByUser[user.userId]?.tier || 'bronze',
+        createdAt: user.createdAt,
+      }));
+    res.json({ users: result, count: result.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/transactions', async (req, res, next) => {
+  try {
+    const [transactions, cartPurchases, allUsers, allProducts] = await Promise.all([
+      store.getAllTransactions(),
+      store.getAllCartPurchases(),
+      store.getAllUsers(),
+      store.getAllProducts(),
+    ]);
+    const userMap = {};
+    for (const user of allUsers) {
+      userMap[user.userId] = user.name || user.email || user.userId;
+    }
+    const productMap = {};
+    for (const p of allProducts) {
+      productMap[p.productId] = p;
+    }
+
+    // Reservation-based transactions
+    const reservationRows = transactions.map(txn => {
+      const product = productMap[txn.productId] || {};
+      const pName = [product.brand, product.model].filter(Boolean).join(' ') || product.category || 'Product';
+      return {
+        transactionId: txn.transactionId,
+        productId: txn.productId,
+        productName: pName,
+        type: 'reservation',
+        sellerId: txn.sellerId,
+        sellerName: userMap[txn.sellerId] || txn.sellerId || 'Unknown',
+        buyerId: txn.buyerId,
+        buyerName: userMap[txn.buyerId] || txn.buyerId || 'Unknown',
+        status: txn.status,
+        price: txn.agreedPrice,
+        createdAt: txn.createdAt,
+      };
+    });
+
+    // Cart purchase transactions
+    const cartRows = cartPurchases.map(cp => ({
+      transactionId: cp.purchaseId,
+      productId: cp.productId,
+      productName: cp.name || 'Cart Product',
+      type: 'cart_purchase',
+      sellerId: null,
+      sellerName: 'ReCircle Store',
+      buyerId: cp.buyerId,
+      buyerName: userMap[cp.buyerId] || cp.buyerEmail || cp.buyerId || 'Unknown',
+      status: cp.status,
+      price: (cp.price || 0) * (cp.quantity || 1),
+      createdAt: cp.purchasedAt || cp.createdAt,
+    }));
+
+    const result = [...reservationRows, ...cartRows]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    res.json({ transactions: result, count: result.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/transactions/:transactionId', async (req, res, next) => {
+  try {
+    const { status } = z.object({ status: z.string() }).parse(req.body);
+    const txn = await store.getTransaction(req.params.transactionId);
+    if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+    txn.status = status;
+    await store.saveTransaction(txn);
+    res.json({ transactionId: txn.transactionId, status: txn.status });
   } catch (err) {
     next(err);
   }
