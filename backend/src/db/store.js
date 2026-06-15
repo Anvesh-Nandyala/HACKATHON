@@ -281,6 +281,41 @@ const store = {
     return queryGSI('GSI1', 'GSI1PK', `GEO#${geohash4}`, 'SUB#');
   },
 
+  // ─── Demo cart purchase operations ───
+
+  async saveCartPurchase(purchase) {
+    const item = {
+      PK: `CARTPURCHASE#${purchase.purchaseId}`,
+      SK: 'METADATA',
+      GSI1PK: `CARTSTATUS#${purchase.status}`,
+      GSI1SK: `PURCHASE#${purchase.purchasedAt || purchase.createdAt}`,
+      GSI2PK: `USER#${purchase.buyerId}`,
+      GSI2SK: `CARTPURCHASE#${purchase.purchasedAt || purchase.createdAt}`,
+      ...purchase,
+      updatedAt: new Date().toISOString(),
+    };
+    await putItem(item);
+  },
+
+  async getCartPurchase(purchaseId) {
+    return getItem(`CARTPURCHASE#${purchaseId}`, 'METADATA');
+  },
+
+  async getCartPurchasesForUser(userId) {
+    return queryGSI('GSI2', 'GSI2PK', `USER#${userId}`, 'CARTPURCHASE#');
+  },
+
+  async getReturnedCartPurchases() {
+    const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+    const { docClient, TABLE_NAME } = require('./dynamodb');
+    const { Items } = await docClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'SK = :sk AND begins_with(PK, :pk)',
+      ExpressionAttributeValues: { ':sk': 'METADATA', ':pk': 'CARTPURCHASE#' },
+    }));
+    return (Items || []).filter(item => ['refurbished', 'recycled', 'admin_review', 'donated'].includes(item.status));
+  },
+
   // ─── WebSocket connection operations ───
 
   async saveWebSocketConnection(conn) {

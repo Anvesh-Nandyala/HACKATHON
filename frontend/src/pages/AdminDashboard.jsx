@@ -296,8 +296,12 @@ export default function AdminDashboard() {
         api.getAdminStats(),
         tab === 'returns' ? api.getAdminReturns() : api.getAdminProducts(activeParams),
       ]);
+      const cartReturns = tab === 'returns'
+        ? await api.getAdminCartReturns().catch(() => ({ purchases: readLocalReturnedPurchases() }))
+        : { purchases: readLocalReturnedPurchases() };
       setStats(nextStats);
       setProducts(productData.products || []);
+      setLocalReturns(cartReturns.purchases || []);
     } catch (err) {
       setMessage(err.message || 'Could not load admin dashboard.');
     } finally {
@@ -351,13 +355,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const resolveLocalReturn = (purchaseId, disposition) => {
+  const resolveLocalReturn = async (purchaseId, disposition) => {
+    let resolved = null;
+    try {
+      const data = await api.resolveAdminCartReturn(purchaseId, disposition);
+      resolved = data.purchase;
+    } catch {}
+
     const next = localReturns.map(item => item.purchaseId === purchaseId
-      ? {
+      ? (resolved || {
         ...item,
         status: disposition === 'donate' ? 'donated' : 'recycled',
         adminResolvedAt: new Date().toISOString(),
-      }
+      })
       : item);
     setLocalReturns(next);
     saveLocalReturnedPurchases(next);

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../api';
 
 function readCart() {
   return JSON.parse(localStorage.getItem('demo_cart') || '[]')
@@ -61,9 +62,17 @@ export default function Checkout() {
     setOrderPlaced(false);
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (!items.length) return;
-    savePurchasedProducts(items);
+    try {
+      const data = await api.createCartPurchases(items);
+      if (data.purchases?.length) {
+        const existing = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+        localStorage.setItem('demo_purchased_products', JSON.stringify([...data.purchases, ...existing]));
+      }
+    } catch {
+      savePurchasedProducts(items);
+    }
     saveCart([]);
     setItems([]);
     setOrderPlaced(true);

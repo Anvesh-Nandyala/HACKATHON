@@ -100,6 +100,13 @@ export const api = {
   cancelTransaction: (id) => request(`/transactions/${id}/cancel`, { method: 'POST' }),
   requestReturn: (id, data) => request(`/transactions/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
 
+  // Cart purchases
+  createCartPurchases: (items) => request('/cart-purchases', { method: 'POST', body: JSON.stringify({ items }) }),
+  getMyCartPurchases: () => request('/cart-purchases/mine'),
+  returnCartPurchase: (id) => request(`/cart-purchases/${id}/return`, { method: 'POST' }),
+  getAdminCartReturns: () => request('/cart-purchases/admin/returns'),
+  resolveAdminCartReturn: (id, disposition) => request(`/cart-purchases/admin/returns/${id}/resolve`, { method: 'POST', body: JSON.stringify({ disposition }) }),
+
   // Credits
   getBalance: () => request('/credits/balance'),
   getHistory: () => request('/credits/history'),

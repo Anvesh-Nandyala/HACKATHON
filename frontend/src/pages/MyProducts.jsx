@@ -68,13 +68,28 @@ export default function MyProducts() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getMyProducts()
-      .then(data => setProducts(data.products || []))
+    Promise.all([
+      api.getMyProducts().catch(() => ({ products: [] })),
+      api.getMyCartPurchases().catch(() => ({ purchases: readPurchasedProducts() })),
+    ])
+      .then(([productData, purchaseData]) => {
+        setProducts(productData.products || []);
+        setPurchasedProducts(purchaseData.purchases || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const returnPurchasedProduct = (purchaseId) => {
+  const returnPurchasedProduct = async (purchaseId) => {
+    try {
+      const data = await api.returnCartPurchase(purchaseId);
+      const next = purchasedProducts.map(item => item.purchaseId === purchaseId ? data.purchase : item);
+      setPurchasedProducts(next);
+      savePurchasedProducts(next);
+      if (data.purchase?.status === 'refurbished') saveLocalRefurbishedProduct(data.purchase);
+      return;
+    } catch {}
+
     const next = purchasedProducts.map(item => item.purchaseId === purchaseId
       ? (() => {
         const inspection = estimateReturnDamage(item);

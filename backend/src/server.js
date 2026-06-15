@@ -71,6 +71,7 @@ app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/credits', authMiddleware, creditsRoutes);
 app.use('/api/reviews', authMiddleware, require('./routes/reviews'));
 app.use('/api/notifications', authMiddleware, require('./routes/notifications'));
+app.use('/api/cart-purchases', authMiddleware, require('./routes/cartPurchases'));
 app.use('/api/admin', authMiddleware, require('./routes/admin'));
 
 // Error handling
