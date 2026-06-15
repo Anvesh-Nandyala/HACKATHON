@@ -78,8 +78,8 @@ export default function ReturnRiskCheck({ productId, product }) {
       setResult({
         riskLevel: 'medium',
         riskScore: 0.5,
-        summary: err.message || 'Could not analyze return risk. Review details before reserving.',
-        reasons: ['Return risk could not be calculated right now.'],
+        summary: err.message || 'Could not analyze return risk. Review details before buying.',
+        reasons: ['Return risk could not be calculated from the backend right now.'],
         suggestions: ['Confirm condition, model, and accessories with the seller.'],
       });
     } finally {

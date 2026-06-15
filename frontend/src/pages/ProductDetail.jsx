@@ -288,7 +288,7 @@ export default function ProductDetail({ user }) {
           {product && <AIInspectionReport product={product} />}
 
           {/* AI Compatibility Check */}
-          {product?.productId && product.status === 'listed' && <CompatibilityCheck productId={product.productId} />}
+          {product?.productId && product.status === 'listed' && <CompatibilityCheck productId={product.productId} product={product} />}
 
           {/* Green Impact Modal */}
           <GreenImpactModal visible={showImpactModal} onClose={() => setShowImpactModal(false)} data={impactData} />
