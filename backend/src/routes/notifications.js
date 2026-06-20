@@ -1,7 +1,31 @@
 const express = require('express');
 const notifications = require('../services/notifications');
+const sse = require('../services/sse');
 
 const router = express.Router();
+
+/**
+ * GET /api/notifications/stream — SSE connection for notifications
+ */
+router.get('/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Send an initial heartbeat
+  res.write('data: {"type": "connected"}\n\n');
+
+  // Keep connection alive
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 30000);
+
+  res.on('close', () => {
+    clearInterval(heartbeat);
+  });
+
+  sse.addClient(req.user.userId, res);
+});
 
 /**
  * POST /api/notifications/subscriptions — Create interest subscription

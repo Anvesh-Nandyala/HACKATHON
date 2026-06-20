@@ -1,5 +1,5 @@
 const API_ROOT = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || 'http://localhost:8080';
-const API_BASE = `${API_ROOT.replace(/\/+$/, '').replace(/\/api$/, '')}/api`;
+export const API_BASE = `${API_ROOT.replace(/\/+$/, '').replace(/\/api$/, '')}/api`;
 
 function getToken() {
   return localStorage.getItem('auth_token');
