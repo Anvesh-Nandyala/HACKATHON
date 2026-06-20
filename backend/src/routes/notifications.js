@@ -11,6 +11,7 @@ router.get('/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Prevents Nginx/CloudFront from buffering the SSE stream
 
   // Send an initial heartbeat
   res.write('data: {"type": "connected"}\n\n');
