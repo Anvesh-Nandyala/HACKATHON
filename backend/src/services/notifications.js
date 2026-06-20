@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const ngeohash = require('ngeohash');
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const { store } = require('../db/store');
-const websocket = require('./websocket');
+const sse = require('./sse');
 const { haversineDistance } = require('./marketplace');
 
 /**
@@ -180,16 +180,9 @@ async function matchAndNotify(product) {
 }
 
 async function sendToUser(userId, notification) {
-  // Try WebSocket first
-  if (websocket.isEnabled()) {
-    const connections = await websocket.getActiveConnections(userId);
-    if (connections.length > 0) {
-      for (const conn of connections) {
-        const sent = await websocket.sendToConnection(conn.connectionId, notification);
-        if (sent) return; // Delivered via at least one connection
-      }
-    }
-  }
+  // Try SSE first
+  const sent = await sse.sendToUser(userId, notification);
+  if (sent) return; // Delivered via at least one connection
 
   // Fallback to SNS
   if (NOTIFICATION_TOPIC_ARN) {

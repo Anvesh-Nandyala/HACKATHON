@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import { api } from './api';
 import OfflineBanner from './components/OfflineBanner';
+import { useNotifications } from './hooks/useNotifications';
 
 const CATEGORIES = [
   'Electronics', 'Clothing', 'Furniture', 'Books', 'Toys',
@@ -40,6 +41,17 @@ export default function App() {
     const cart = JSON.parse(localStorage.getItem('demo_cart') || '[]');
     return cart.reduce((total, item) => total + (item.quantity || 1), 0);
   });
+
+  const lastNotification = useNotifications(user);
+  const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    if (lastNotification) {
+      setShowToast(true);
+      const timer = setTimeout(() => setShowToast(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastNotification]);
 
   useEffect(() => {
     if (user) {
@@ -118,6 +130,24 @@ export default function App() {
   return (
     <div className="app">
       <OfflineBanner />
+      {showToast && lastNotification && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: '#10b981',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 9999,
+          cursor: 'pointer'
+        }} onClick={() => navigate(`/product/${lastNotification.productId}`)}>
+          <strong>🔔 Match Found!</strong><br/>
+          {lastNotification.category} • ${lastNotification.recommendedPrice}<br/>
+          <small>{lastNotification.distance} km away</small>
+        </div>
+      )}
       <header className="header">
         <div className="header-top">
           <Link to="/" className="header-logo">ReCircle</Link>

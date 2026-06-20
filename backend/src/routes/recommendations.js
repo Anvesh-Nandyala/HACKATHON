@@ -48,8 +48,6 @@ router.get('/rescue', async (req, res, next) => {
   }
 });
 
-module.exports = router;
-
 
 /**
  * GET /api/recommendations/refurbished
@@ -135,3 +133,5 @@ router.get('/refurbished', async (req, res, next) => {
     next(err);
   }
 });
+
+module.exports = router;
