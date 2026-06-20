@@ -1,5 +1,6 @@
 const { estimatePrice } = require('../services/pricing');
 const { store } = require('../db/store');
+const { updateItem } = require('../db/dynamodb');
 const { invalidateOnProductChange } = require('../services/cacheInvalidation');
 
 /**
@@ -49,36 +50,40 @@ async function processMessage(message) {
     location: payload.location,
   });
 
-  // Store price estimate
-  product.priceEstimate = priceEstimate;
+  await updateItem(`PRODUCT#${productId}`, 'METADATA', { priceEstimate });
+
+  const latestProduct = await store.getProduct(productId);
+  if (!latestProduct) {
+    console.warn(`[PricingWorker] Product ${productId} disappeared before save, discarding`);
+    return true;
+  }
 
   // Check if routing is also complete — if so, mark as "listed"
-  if (product.routingDecision) {
-    product.status = 'listed';
+  if (latestProduct.routingDecision) {
+    await updateItem(`PRODUCT#${productId}`, 'METADATA', { status: 'listed' });
+    latestProduct.status = 'listed';
 
     // Award credits for listing
     try {
       const { awardCredits } = require('../services/credits');
-      await awardCredits(product.userId, {
+      await awardCredits(latestProduct.userId, {
         actionType: 'sell',
         productId,
-        metadata: { price: priceEstimate.recommendedPrice, destination: product.routingDecision.destination },
+        metadata: { price: priceEstimate.recommendedPrice, destination: latestProduct.routingDecision.destination },
       });
     } catch (err) {
       console.warn(`[PricingWorker] Credits award failed for ${productId}: ${err.message}`);
     }
   }
 
-  await store.saveProduct(product);
-
   // Invalidate cache if product is now listed
-  if (product.status === 'listed') {
-    await invalidateOnProductChange(product);
+  if (latestProduct.status === 'listed') {
+    await invalidateOnProductChange(latestProduct);
 
     // Trigger notification matching
     try {
       const { matchAndNotify } = require('../services/notifications');
-      await matchAndNotify(product);
+      await matchAndNotify(latestProduct);
     } catch (err) {
       console.warn(`[PricingWorker] Notification matching failed: ${err.message}`);
     }

@@ -4,6 +4,7 @@ import { api } from '../api';
 import AIInspectionReport from '../components/AIInspectionReport';
 import CompatibilityCheck from '../components/CompatibilityCheck';
 import GreenImpactModal from '../components/GreenImpactModal';
+import ReturnRiskCheck from '../components/ReturnRiskCheck';
 
 function productName(product) {
   return product.name || [product.brand, product.model].filter(Boolean).join(' ') || product.category || 'Product';
@@ -204,6 +205,9 @@ export default function ProductDetail({ user }) {
 
         <div>
           <h1 className="detail-title">{name}</h1>
+          {product.condition === 'refurbished' && (
+            <div className="recommendation-badge certified" style={{ marginBottom: '0.75rem' }}>Refurbished</div>
+          )}
           <div className="product-card-rating">
             <span>{product.avgRating || 4.5} rating</span>
             <span style={{ color: 'var(--blue)' }}>{product.reviewCount || 0} reviews</span>
@@ -252,6 +256,10 @@ export default function ProductDetail({ user }) {
             {isDemo ? 'Ships from ReCircle' : 'Self-pickup / No shipping fees / Meet locally'}
           </p>
 
+          {product?.productId && product.status === 'listed' && (
+            <ReturnRiskCheck productId={product.productId} product={product} />
+          )}
+
           {isAvailable ? (
             isDemo ? (
               cartQuantity > 0 ? (
@@ -280,7 +288,7 @@ export default function ProductDetail({ user }) {
           {product && <AIInspectionReport product={product} />}
 
           {/* AI Compatibility Check */}
-          {product?.productId && product.status === 'listed' && <CompatibilityCheck productId={product.productId} />}
+          {product?.productId && product.status === 'listed' && <CompatibilityCheck productId={product.productId} product={product} />}
 
           {/* Green Impact Modal */}
           <GreenImpactModal visible={showImpactModal} onClose={() => setShowImpactModal(false)} data={impactData} />

@@ -62,6 +62,7 @@ app.use('/api/seed', require('./routes/seed'));
 app.use('/api/health', require('./routes/health'));
 app.use('/api/compatibility', require('./routes/compatibility'));
 app.use('/api/recommendations', require('./routes/recommendations'));
+app.use('/api/location', require('./routes/location'));
 
 // Protected routes
 app.use('/api/uploads', authMiddleware, require('./routes/uploads'));
@@ -70,6 +71,7 @@ app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/credits', authMiddleware, creditsRoutes);
 app.use('/api/reviews', authMiddleware, require('./routes/reviews'));
 app.use('/api/notifications', authMiddleware, require('./routes/notifications'));
+app.use('/api/cart-purchases', authMiddleware, require('./routes/cartPurchases'));
 app.use('/api/admin', authMiddleware, require('./routes/admin'));
 
 // Error handling

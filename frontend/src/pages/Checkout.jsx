@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../api';
 
 function readCart() {
   return JSON.parse(localStorage.getItem('demo_cart') || '[]')
@@ -10,6 +11,24 @@ function readCart() {
 function saveCart(items) {
   localStorage.setItem('demo_cart', JSON.stringify(items));
   window.dispatchEvent(new Event('cart-updated'));
+}
+
+function savePurchasedProducts(items) {
+  const existing = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+  const purchasedAt = new Date().toISOString();
+  const purchases = items.map(item => ({
+    purchaseId: `${item.id}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    productId: String(item.id).startsWith('demo-') ? item.id : `demo-${item.id}`,
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    price: item.price,
+    quantity: item.quantity || 1,
+    purchasedAt,
+    returnDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'purchased',
+  }));
+  localStorage.setItem('demo_purchased_products', JSON.stringify([...purchases, ...existing]));
 }
 
 export default function Checkout() {
@@ -43,8 +62,17 @@ export default function Checkout() {
     setOrderPlaced(false);
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (!items.length) return;
+    try {
+      const data = await api.createCartPurchases(items);
+      if (data.purchases?.length) {
+        const existing = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+        localStorage.setItem('demo_purchased_products', JSON.stringify([...data.purchases, ...existing]));
+      }
+    } catch {
+      savePurchasedProducts(items);
+    }
     saveCart([]);
     setItems([]);
     setOrderPlaced(true);
@@ -59,7 +87,7 @@ export default function Checkout() {
 
       {orderPlaced && (
         <div className="status-message">
-          Order placed. Your demo cart is now empty.
+          Order placed. Purchased product IDs are saved in My Products.
         </div>
       )}
 

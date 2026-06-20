@@ -33,12 +33,18 @@ router.get('/stream', (req, res) => {
 router.post('/subscriptions', async (req, res, next) => {
   try {
     const { category, priceRange, location, radiusKm } = req.body;
-    if (!location || !location.latitude || !location.longitude) {
+    if (!location || !Number.isFinite(Number(location.latitude)) || !Number.isFinite(Number(location.longitude))) {
       return res.status(400).json({ error: 'location with latitude and longitude is required' });
     }
 
     const subscription = await notifications.createSubscription(req.user.userId, {
-      category, priceRange, location, radiusKm,
+      category,
+      priceRange,
+      location: {
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+      },
+      radiusKm: Number(radiusKm),
     });
     res.status(201).json(subscription);
   } catch (err) {

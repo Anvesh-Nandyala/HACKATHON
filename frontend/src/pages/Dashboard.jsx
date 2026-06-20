@@ -70,7 +70,7 @@ function DemoProductCard({ product, quantity, onQuantityChange }) {
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ buyerLocation }) {
   const [nearbyCount, setNearbyCount] = useState(0);
   const [cartQuantities, setCartQuantities] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('demo_cart') || '[]');
@@ -78,10 +78,15 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    api.discoverNearby({ latitude: 40.7128, longitude: -74.006, radiusKm: 50, limit: 1 })
+    api.discoverNearby({
+      latitude: buyerLocation?.latitude || 40.7128,
+      longitude: buyerLocation?.longitude || -74.006,
+      radiusKm: 50,
+      limit: 1,
+    })
       .then(data => setNearbyCount(data.totalCount || 0))
       .catch(() => {});
-  }, []);
+  }, [buyerLocation]);
 
   const changeCartQuantity = (product, delta) => {
     const saved = JSON.parse(localStorage.getItem('demo_cart') || '[]');

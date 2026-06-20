@@ -20,6 +20,8 @@ const PRODUCT_STATUSES = [
   'returned',
   'return_requested',
   'refurbishment_review',
+  'recycled',
+  'donated',
   'rejected_media_mismatch',
   'hidden',
   'archived',
@@ -71,6 +73,9 @@ function serializeProduct(product) {
     description: product.description,
     adminNote: product.adminNote,
     returnReason: product.returnReason,
+    returnInspection: product.returnInspection,
+    returnTransactionId: product.returnTransactionId,
+    refurbishedAt: product.refurbishedAt,
     returnedAt: product.returnedAt,
     media: {
       imageCount: product.mediaKeys?.images?.length || 0,
@@ -119,7 +124,7 @@ router.get('/stats', async (req, res, next) => {
     res.json({
       totalProducts: products.length,
       activeListed: byStatus.listed || 0,
-      returned: (byStatus.returned || 0) + (byStatus.return_requested || 0),
+      returned: products.filter(product => product.returnInspection || product.returnedAt).length,
       reserved: byStatus.reserved || 0,
       sold: byStatus.sold || 0,
       byStatus,
@@ -172,9 +177,9 @@ router.get('/products/:productId/media/:kind/:index?', async (req, res, next) =>
 
 router.get('/returns', async (req, res, next) => {
   try {
-    const returnedStatuses = new Set(['returned', 'return_requested', 'refurbishment_review']);
+    const returnedStatuses = new Set(['returned', 'return_requested', 'refurbishment_review', 'recycled', 'donated']);
     const products = (await store.getAllProducts())
-      .filter(product => returnedStatuses.has(product.status))
+      .filter(product => returnedStatuses.has(product.status) || product.returnInspection || product.returnedAt)
       .sort((a, b) => new Date(b.returnedAt || b.updatedAt || 0) - new Date(a.returnedAt || a.updatedAt || 0))
       .map(serializeProduct);
 
@@ -248,6 +253,63 @@ router.post('/products/:productId/return', async (req, res, next) => {
     product.returnReason = updates.returnReason || product.returnReason || 'Returned by buyer';
     product.adminNote = updates.adminNote || product.adminNote;
     product.returnedAt = new Date().toISOString();
+
+    await store.saveProduct(product);
+    res.json({ product: serializeProduct(product) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/products/:productId/return-disposition', async (req, res, next) => {
+  try {
+    const { disposition, adminNote } = z.object({
+      disposition: z.enum(['refurbish', 'donate', 'recycle']),
+      adminNote: z.string().max(1000).optional(),
+    }).parse(req.body);
+
+    const product = await store.getProduct(req.params.productId);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const now = new Date().toISOString();
+    product.adminNote = adminNote || product.adminNote;
+
+    if (disposition === 'refurbish') {
+      product.status = 'listed';
+      product.condition = 'refurbished';
+      product.refurbishedAt = now;
+      product.refurbishedTag = 'Refurbished';
+      product.routingDecision = {
+        ...(product.routingDecision || {}),
+        destination: 'refurbish',
+        reasoning: 'Admin approved returned item for refurbishment and relisting.',
+      };
+    }
+
+    if (disposition === 'donate') {
+      product.status = 'donated';
+      product.routingDecision = {
+        ...(product.routingDecision || {}),
+        destination: 'donate',
+        reasoning: 'Admin selected donation for returned product.',
+      };
+    }
+
+    if (disposition === 'recycle') {
+      product.status = 'recycled';
+      product.routingDecision = {
+        ...(product.routingDecision || {}),
+        destination: 'recycle',
+        reasoning: 'Admin selected recycling for returned product.',
+      };
+    }
+
+    product.returnResolution = {
+      disposition,
+      resolvedAt: now,
+      resolvedBy: req.user.userId,
+      adminNote: product.adminNote,
+    };
 
     await store.saveProduct(product);
     res.json({ product: serializeProduct(product) });

@@ -1,133 +1,144 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { store } = require('../db/store');
 
 const router = express.Router();
 
-/**
- * GET /api/recommendations/rescue
- * Returns products scheduled for recycle/donate that were listed in last 48 hours.
- */
+function productName(product) {
+  return [product.brand, product.model].filter(Boolean).join(' ') || product.category || 'Product';
+}
+
+function getOptionalUserId(req) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) return null;
+    const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+    return decoded.userId || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function calculateSavingsPercent(originalPrice, recommendedPrice) {
+  if (!originalPrice || !recommendedPrice || originalPrice <= recommendedPrice) return 0;
+  return Math.round(((originalPrice - recommendedPrice) / originalPrice) * 100);
+}
+
+function toRecommendationItem(product) {
+  const originalPrice = Number(product.originalPrice || 0);
+  const recommendedPrice = Number(product.priceEstimate?.recommendedPrice || originalPrice || 0);
+
+  return {
+    productId: product.productId,
+    name: productName(product),
+    category: product.category,
+    brand: product.brand,
+    model: product.model,
+    recommendedPrice,
+    originalPrice,
+    savingsPercent: calculateSavingsPercent(originalPrice, recommendedPrice),
+    conditionScore: product.verification?.conditionScore,
+    grade: product.verification?.grade,
+    working: product.verification?.working,
+    imageKeys: product.mediaKeys?.images?.slice(0, 1) || [],
+    destination: product.routingDecision?.destination,
+    certified: true,
+    createdAt: product.createdAt,
+  };
+}
+
 router.get('/rescue', async (req, res, next) => {
   try {
     const listed = await store.getListedProducts();
     const now = Date.now();
-    const hours48 = 48 * 60 * 60 * 1000;
+    const rescueWindowMs = 48 * 60 * 60 * 1000;
 
-    // Filter: recycle/donate destination, listed within 48 hours
-    const rescueItems = listed
-      .filter(p => {
-        const dest = p.routingDecision?.destination;
-        if (dest !== 'recycle' && dest !== 'donate') return false;
-        const listedAt = new Date(p.createdAt).getTime();
-        return (now - listedAt) < hours48;
+    const items = listed
+      .filter(product => {
+        const destination = product.routingDecision?.destination;
+        if (destination !== 'recycle' && destination !== 'donate') return false;
+
+        const listedAt = new Date(product.createdAt || 0).getTime();
+        return Number.isFinite(listedAt) && now - listedAt < rescueWindowMs;
       })
-      .map(p => {
-        const listedAt = new Date(p.createdAt).getTime();
-        const hoursRemaining = Math.max(1, Math.round((hours48 - (now - listedAt)) / (60 * 60 * 1000)));
+      .map(product => {
+        const listedAt = new Date(product.createdAt || 0).getTime();
+        const hoursRemaining = Math.max(1, Math.ceil((rescueWindowMs - (now - listedAt)) / (60 * 60 * 1000)));
+
         return {
-          productId: p.productId,
-          category: p.category,
-          brand: p.brand,
-          model: p.model,
-          recommendedPrice: p.priceEstimate?.recommendedPrice,
-          conditionScore: p.verification?.conditionScore,
-          grade: p.verification?.grade,
-          imageKeys: p.mediaKeys?.images?.slice(0, 1),
-          destination: p.routingDecision?.destination,
-          co2SavedKg: p.routingDecision?.co2SavedKg || 2,
+          productId: product.productId,
+          name: productName(product),
+          category: product.category,
+          brand: product.brand,
+          model: product.model,
+          recommendedPrice: product.priceEstimate?.recommendedPrice,
+          conditionScore: product.verification?.conditionScore,
+          grade: product.verification?.grade,
+          imageKeys: product.mediaKeys?.images?.slice(0, 1) || [],
+          destination: product.routingDecision?.destination,
+          co2SavedKg: product.routingDecision?.co2SavedKg || 2,
           hoursRemaining,
-          createdAt: p.createdAt,
+          createdAt: product.createdAt,
         };
       })
       .sort((a, b) => a.hoursRemaining - b.hoursRemaining)
       .slice(0, 5);
 
-    res.json({ items: rescueItems, count: rescueItems.length });
+    res.json({ items, count: items.length });
   } catch (err) {
     next(err);
   }
 });
 
-
-/**
- * GET /api/recommendations/refurbished
- * Personalized recommendations for certified refurbished products.
- * Uses Bedrock AI to rank by user relevance when authenticated.
- */
 router.get('/refurbished', async (req, res, next) => {
   try {
     const listed = await store.getListedProducts();
+    const userId = getOptionalUserId(req);
 
-    // Filter: refurbished destination or refurbished condition
-    let refurbishedItems = listed.filter(p => {
-      const dest = p.routingDecision?.destination;
-      return dest === 'refurbish' || dest === 'resell' || p.condition === 'refurbished';
-    });
+    let items = listed
+      .filter(product => {
+        return product.condition === 'refurbished'
+          && (product.refurbishedAt || product.returnInspection || product.returnedAt || product.refurbishedTag);
+      })
+      .map(toRecommendationItem);
 
-    // Build response items
-    let items = refurbishedItems.map(p => {
-      const originalPrice = p.originalPrice || 0;
-      const recommendedPrice = p.priceEstimate?.recommendedPrice || originalPrice;
-      const savingsPercent = originalPrice > 0
-        ? Math.round(((originalPrice - recommendedPrice) / originalPrice) * 100)
-        : 0;
-
-      return {
-        productId: p.productId,
-        category: p.category,
-        brand: p.brand,
-        model: p.model,
-        recommendedPrice,
-        originalPrice,
-        savingsPercent,
-        conditionScore: p.verification?.conditionScore,
-        grade: p.verification?.grade,
-        working: p.verification?.working,
-        imageKeys: p.mediaKeys?.images?.slice(0, 1),
-        destination: p.routingDecision?.destination,
-        certified: true,
-        createdAt: p.createdAt,
-      };
-    });
-
-    // Try personalization if user is authenticated and Bedrock is enabled
-    const authHeader = req.headers.authorization;
-    if (authHeader && process.env.ENABLE_BEDROCK === 'true' && items.length > 3) {
+    if (userId && items.length > 0) {
       try {
-        const jwt = require('jsonwebtoken');
-        const token = authHeader.replace('Bearer ', '');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        const personalization = require('../services/personalization');
+        const userContext = await personalization.getUserContext(userId);
+        const userCategories = userContext.purchaseHistory?.categories || [];
+        const userAvgPrice = userContext.purchaseHistory?.avgPrice || 0;
 
-        if (userId) {
-          const personalization = require('../services/personalization');
-          const userContext = await personalization.getUserContext(userId);
+        items = await Promise.all(items.map(async item => {
+          let relevanceScore = 0.5;
+          let relevanceSource = 'heuristic';
 
-          // Simple relevance scoring: match user's past categories and price range
-          const userCategories = userContext.purchaseHistory?.categories || [];
-          const userAvgPrice = userContext.purchaseHistory?.avgPrice || 0;
-
-          items = items.map(item => {
-            let relevanceScore = 0.5;
+          if (personalization.isEnabled()) {
+            relevanceScore = await personalization.scoreRelevance(userId, item);
+            relevanceSource = 'bedrock';
+          } else {
             if (userCategories.includes(item.category)) relevanceScore += 0.3;
             if (userAvgPrice > 0 && item.recommendedPrice <= userAvgPrice * 1.3) relevanceScore += 0.2;
-            return { ...item, relevanceScore: Math.min(1, relevanceScore) };
-          });
+          }
 
-          items.sort((a, b) => b.relevanceScore - a.relevanceScore);
-        }
+          relevanceScore = Math.max(0, Math.min(1, Number(relevanceScore || 0.5)));
+          return {
+            ...item,
+            relevanceScore,
+            relevanceSource,
+            aiMatched: relevanceScore >= 0.7,
+          };
+        }));
+
+        items.sort((a, b) => b.relevanceScore - a.relevanceScore);
       } catch (err) {
-        // Auth failed or personalization failed — continue with default order
+        items.sort((a, b) => (b.conditionScore || 0) - (a.conditionScore || 0));
       }
-    }
-
-    // Default sort: by condition score descending
-    if (!items[0]?.relevanceScore) {
+    } else {
       items.sort((a, b) => (b.conditionScore || 0) - (a.conditionScore || 0));
     }
 
     items = items.slice(0, 8);
-
     res.json({ items, count: items.length });
   } catch (err) {
     next(err);

@@ -21,7 +21,7 @@ function pickupWindow() {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-export default function Nearby({ user }) {
+export default function Nearby({ user, buyerLocation }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -39,8 +39,8 @@ export default function Nearby({ user }) {
     setMessage('');
     try {
       const result = await api.discoverNearby({
-        latitude: 40.7128,
-        longitude: -74.006,
+        latitude: buyerLocation?.latitude || 40.7128,
+        longitude: buyerLocation?.longitude || -74.006,
         radiusKm: nextFilters.radiusKm,
         sortBy: nextFilters.sortBy,
         limit: 50,
@@ -56,7 +56,7 @@ export default function Nearby({ user }) {
     }
   };
 
-  useEffect(() => { search(); }, []);
+  useEffect(() => { search(); }, [buyerLocation]);
 
   const reserve = async (product) => {
     setReservingId(product.productId);
@@ -194,6 +194,7 @@ export default function Nearby({ user }) {
               tabIndex={0}
               onKeyDown={event => event.key === 'Enter' && openProduct(product)}
             >
+              {product.condition === 'refurbished' && <span className="product-card-badge">Refurbished</span>}
               <span className="product-card-distance">{product.distance} km away</span>
               <div className="product-card-image product-card-text-image">{product.category}</div>
               <div className="product-card-title">{productName(product)}</div>

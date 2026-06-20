@@ -12,11 +12,13 @@ import PickupDetail from './pages/PickupDetail';
 import MyProducts from './pages/MyProducts';
 import Credits from './pages/Credits';
 import AdminDashboard from './pages/AdminDashboard';
+import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { api } from './api';
 import OfflineBanner from './components/OfflineBanner';
 import { useNotifications } from './hooks/useNotifications';
+import { getBuyerLocation, saveBuyerLocation } from './services/buyerLocation';
 
 const CATEGORIES = [
   'Electronics', 'Clothing', 'Furniture', 'Books', 'Toys',
@@ -37,6 +39,11 @@ export default function App() {
   const [creditRefresh, setCreditRefresh] = useState(0);
   const [searchText, setSearchText] = useState('');
   const [searchCategory, setSearchCategory] = useState('');
+  const [buyerLocation, setBuyerLocation] = useState(() => getBuyerLocation());
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationAddress, setLocationAddress] = useState(() => getBuyerLocation().address || '');
+  const [locationStatus, setLocationStatus] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [cartCount, setCartCount] = useState(() => {
     const cart = JSON.parse(localStorage.getItem('demo_cart') || '[]');
     return cart.reduce((total, item) => total + (item.quantity || 1), 0);
@@ -96,6 +103,66 @@ export default function App() {
     navigate(`/marketplace${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
+  const handleSaveAddress = async (event) => {
+    event.preventDefault();
+    setLocationStatus('');
+    setLocationError('');
+
+    if (!locationAddress.trim()) {
+      setLocationError('Enter a city or full address.');
+      return;
+    }
+
+    try {
+      setLocationStatus('Finding location...');
+      const data = await api.geocodeAddress(locationAddress.trim());
+      const label = locationAddress.trim().split(',')[0].trim() || 'Saved Location';
+      const saved = saveBuyerLocation({
+        label,
+        address: locationAddress.trim(),
+        latitude: data.latitude,
+        longitude: data.longitude,
+      });
+      setBuyerLocation(saved);
+      setLocationStatus('Location saved.');
+      setLocationOpen(false);
+    } catch (err) {
+      setLocationError(err.message || 'Could not find this address.');
+      setLocationStatus('');
+    }
+  };
+
+  const handleUseDeviceLocation = () => {
+    setLocationStatus('');
+    setLocationError('');
+
+    if (!navigator.geolocation) {
+      setLocationError('Device location is not available in this browser.');
+      return;
+    }
+
+    setLocationStatus('Reading device location...');
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const saved = saveBuyerLocation({
+          label: 'Current Location',
+          address: 'Current Location',
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setBuyerLocation(saved);
+        setLocationAddress(saved.address);
+        setLocationStatus('Location saved.');
+        setLocationOpen(false);
+      },
+      () => {
+        setLocationError('Could not read device location. Enter address manually.');
+        setLocationStatus('');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   if (user?.role === 'admin') {
     return (
       <div className="app">
@@ -152,10 +219,10 @@ export default function App() {
         <div className="header-top">
           <Link to="/" className="header-logo">ReCircle</Link>
 
-          <div className="header-location">
+          <button type="button" className="header-location header-location-button" onClick={() => setLocationOpen(true)}>
             <span>Deliver to</span>
-            <strong>Your Location</strong>
-          </div>
+            <strong>{buyerLocation.label}</strong>
+          </button>
 
           <form className="header-search" onSubmit={handleSearch}>
             <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)} aria-label="Search category">
@@ -189,6 +256,10 @@ export default function App() {
                 <Link to="/pickups" className="header-nav-item">
                   <span>&nbsp;</span>
                   <strong>Pickups</strong>
+                </Link>
+                <Link to="/notifications" className="header-nav-item">
+                  <span>Product</span>
+                  <strong>Alerts</strong>
                 </Link>
                 <Link to="/submit" className="header-nav-item">
                   <span>Sell and</span>
@@ -229,21 +300,51 @@ export default function App() {
               <NavLink key={c} to={`/marketplace?category=${toCategoryValue(c)}`}>{c}</NavLink>
             ))}
             {user && <NavLink to="/pickups">Pickups</NavLink>}
+            {user && <NavLink to="/notifications">Alerts</NavLink>}
             {user && <NavLink to="/submit" style={{ color: 'var(--accent)' }}>Sell</NavLink>}
             {user?.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}
           </div>
         </div>
       </header>
 
+      {locationOpen && (
+        <div className="location-overlay" role="presentation" onClick={() => setLocationOpen(false)}>
+          <div className="location-modal" role="dialog" aria-modal="true" aria-labelledby="location-title" onClick={event => event.stopPropagation()}>
+            <div className="location-modal-header">
+              <h2 id="location-title">Choose your location</h2>
+              <button type="button" className="location-close" onClick={() => setLocationOpen(false)}>Close</button>
+            </div>
+            <p className="muted-text">Nearby products and distance filters will use this location.</p>
+            <form onSubmit={handleSaveAddress}>
+              <div className="form-group">
+                <label>Address or city</label>
+                <input
+                  value={locationAddress}
+                  onChange={event => setLocationAddress(event.target.value)}
+                  placeholder="e.g. MG Road, Bengaluru, India"
+                />
+              </div>
+              {locationError && <div className="status-message status-message-error">{locationError}</div>}
+              {locationStatus && <div className="status-message">{locationStatus}</div>}
+              <div className="location-actions">
+                <button type="submit" className="btn btn-primary">Save Location</button>
+                <button type="button" className="btn btn-secondary" onClick={handleUseDeviceLocation}>Use Device Location</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <main className="main">
         <Routes>
-          <Route path="/" element={<Dashboard user={user} />} />
-          <Route path="/marketplace" element={<Marketplace user={user} />} />
-          <Route path="/nearby" element={<Nearby user={user} />} />
+          <Route path="/" element={<Dashboard user={user} buyerLocation={buyerLocation} />} />
+          <Route path="/marketplace" element={<Marketplace user={user} buyerLocation={buyerLocation} />} />
+          <Route path="/nearby" element={<Nearby user={user} buyerLocation={buyerLocation} />} />
           <Route path="/product/:productId" element={<ProductDetail user={user} />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/pickups" element={user ? <Pickups /> : <Navigate to="/login" replace />} />
           <Route path="/pickups/:transactionId" element={user ? <PickupDetail /> : <Navigate to="/login" replace />} />
+          <Route path="/notifications" element={user ? <Notifications /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
           <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={handleLogin} />} />
           <Route path="/submit" element={user ? <SubmitProduct /> : <Navigate to="/login" replace />} />

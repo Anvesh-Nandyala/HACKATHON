@@ -78,6 +78,7 @@ export const api = {
   getMyProducts: () => request('/products'),
 
   // Marketplace
+  geocodeAddress: (address) => request('/location/geocode', { method: 'POST', body: JSON.stringify({ address }) }),
   discoverNearby: (params) => {
     const query = new URLSearchParams(params).toString();
     return request(`/marketplace/nearby?${query}`);
@@ -85,6 +86,10 @@ export const api = {
   getMarketStats: () => request('/marketplace/stats'),
   getBatchStatus: () => request('/marketplace/batch-status'),
   getProductDetail: (id) => request(`/marketplace/product/${id}`),
+  getRescueRecommendations: () => request('/recommendations/rescue'),
+  getRefurbishedRecommendations: () => request('/recommendations/refurbished'),
+  checkReturnRisk: (data) => request('/compatibility/return-risk', { method: 'POST', body: JSON.stringify(data) }),
+  checkCompatibility: (data) => request('/compatibility/check', { method: 'POST', body: JSON.stringify(data) }),
 
   // Transactions
   reserveProduct: (data) => request('/transactions/reserve', { method: 'POST', body: JSON.stringify(data) }),
@@ -93,11 +98,26 @@ export const api = {
   verifyPickup: (id, otp) => request(`/transactions/${id}/verify-pickup`, { method: 'POST', body: JSON.stringify({ otp }) }),
   completeTransaction: (id) => request(`/transactions/${id}/complete`, { method: 'POST' }),
   cancelTransaction: (id) => request(`/transactions/${id}/cancel`, { method: 'POST' }),
+  requestReturn: (id, data) => request(`/transactions/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Cart purchases
+  createCartPurchases: (items) => request('/cart-purchases', { method: 'POST', body: JSON.stringify({ items }) }),
+  getMyCartPurchases: () => request('/cart-purchases/mine'),
+  returnCartPurchase: (id) => request(`/cart-purchases/${id}/return`, { method: 'POST' }),
+  getAdminCartReturns: () => request('/cart-purchases/admin/returns'),
+  resolveAdminCartReturn: (id, disposition) => request(`/cart-purchases/admin/returns/${id}/resolve`, { method: 'POST', body: JSON.stringify({ disposition }) }),
 
   // Credits
   getBalance: () => request('/credits/balance'),
   getHistory: () => request('/credits/history'),
   redeemCredits: (amount, rewardType) => request('/credits/redeem', { method: 'POST', body: JSON.stringify({ amount, rewardType }) }),
+
+  // Notifications
+  getNotificationSubscriptions: () => request('/notifications/subscriptions'),
+  createNotificationSubscription: (data) => request('/notifications/subscriptions', { method: 'POST', body: JSON.stringify(data) }),
+  deleteNotificationSubscription: (id) => request(`/notifications/subscriptions/${id}`, { method: 'DELETE' }),
+  getNotificationMode: () => request('/notifications/mode'),
+  updateNotificationMode: (mode) => request('/notifications/mode', { method: 'PUT', body: JSON.stringify({ mode }) }),
 
   // Admin
   getAdminStats: () => request('/admin/stats'),
@@ -109,5 +129,6 @@ export const api = {
   getAdminMediaUrl: (id, kind, index = 0) => requestBlob(`/admin/products/${id}/media/${kind}/${index}`),
   updateAdminProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   markAdminProductReturned: (id, data) => request(`/admin/products/${id}/return`, { method: 'POST', body: JSON.stringify(data) }),
+  resolveAdminReturn: (id, data) => request(`/admin/products/${id}/return-disposition`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAdminProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),
 };

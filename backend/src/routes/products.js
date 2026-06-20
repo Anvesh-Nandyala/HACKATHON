@@ -1,12 +1,12 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const ngeohash = require('ngeohash');
 const { ProductSubmissionSchema } = require('../validators/schemas');
 const { store } = require('../db/store');
 const { verifyProduct } = require('../services/verification');
 const { estimatePrice } = require('../services/pricing');
 const { determineRoute } = require('../services/routing');
 const { invalidateOnProductChange } = require('../services/cacheInvalidation');
+const { resolveProductLocation } = require('../services/geocoding');
 const queue = require('../services/queue');
 
 const router = express.Router();
@@ -23,7 +23,10 @@ router.post('/submit', async (req, res, next) => {
     const userId = req.user.userId;
 
     const productId = uuidv4();
-    const geohash = ngeohash.encode(data.location.latitude, data.location.longitude, 6);
+    const resolvedLocation = await resolveProductLocation({
+      location: data.location,
+      pickupAddress: data.pickupAddress,
+    });
 
     // Create product record
     const product = {
@@ -41,12 +44,7 @@ router.post('/submit', async (req, res, next) => {
         images: data.imageKeys,
         video: data.videoKey,
       },
-      location: {
-        latitude: data.location.latitude,
-        longitude: data.location.longitude,
-        geohash,
-        address: data.pickupAddress || 'Seller pickup address not provided',
-      },
+      location: resolvedLocation,
       pickupAddress: data.pickupAddress || 'Seller pickup address not provided',
       description: data.description,
       createdAt: new Date().toISOString(),
@@ -91,7 +89,7 @@ router.post('/submit', async (req, res, next) => {
         conditionScore: verification.conditionScore,
         grade: verification.grade,
         working: verification.working,
-        location: data.location,
+        location: resolvedLocation,
       };
 
       const routingPayload = {
@@ -99,11 +97,11 @@ router.post('/submit', async (req, res, next) => {
         grade: verification.grade,
         category: data.category,
         estimatedPrice: data.originalPrice,
-        location: data.location,
         weight: data.weight || 1,
         dimensions: data.dimensions || { length: 30, width: 20, height: 15 },
         working: verification.working,
         authenticityScore: verification.authenticityScore,
+        location: resolvedLocation,
       };
 
       // Enqueue both tasks
@@ -150,7 +148,7 @@ router.post('/submit', async (req, res, next) => {
       conditionScore: verification.conditionScore,
       grade: verification.grade,
       working: verification.working,
-      location: data.location,
+      location: resolvedLocation,
     });
 
     product.priceEstimate = priceEstimate;
@@ -164,7 +162,7 @@ router.post('/submit', async (req, res, next) => {
       estimatedPrice: priceEstimate.recommendedPrice,
       recommendedPrice: priceEstimate.recommendedPrice,
       priceRange: priceEstimate.priceRange,
-      location: data.location,
+      location: resolvedLocation,
       weight: data.weight || 1,
       dimensions: data.dimensions || { length: 30, width: 20, height: 15 },
       working: verification.working,

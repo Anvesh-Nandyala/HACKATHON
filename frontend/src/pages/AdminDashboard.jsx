@@ -9,6 +9,8 @@ const STATUSES = [
   'returned',
   'return_requested',
   'refurbishment_review',
+  'recycled',
+  'donated',
   'rejected_media_mismatch',
   'hidden',
   'archived',
@@ -30,6 +32,20 @@ function date(value) {
 
 function statusLabel(status) {
   return String(status || 'unknown').replace(/_/g, ' ');
+}
+
+function readLocalReturnedPurchases() {
+  return JSON.parse(localStorage.getItem('demo_purchased_products') || '[]')
+    .filter(item => ['refurbished', 'recycled', 'admin_review', 'donated'].includes(item.status));
+}
+
+function saveLocalReturnedPurchases(items) {
+  const all = JSON.parse(localStorage.getItem('demo_purchased_products') || '[]');
+  const returnedIds = new Set(items.map(item => item.purchaseId));
+  const merged = all.map(item => returnedIds.has(item.purchaseId)
+    ? items.find(next => next.purchaseId === item.purchaseId)
+    : item);
+  localStorage.setItem('demo_purchased_products', JSON.stringify(merged));
 }
 
 function AdminMediaPreview({ product }) {
@@ -106,7 +122,7 @@ function AdminMediaPreview({ product }) {
   );
 }
 
-function ProductEditor({ product, onSave, onReturn, onDelete, busy }) {
+function ProductEditor({ product, onSave, onReturn, onResolveReturn, onDelete, busy }) {
   const [draft, setDraft] = useState(() => ({
     status: product.status || 'listed',
     category: product.category || 'electronics',
@@ -141,6 +157,34 @@ function ProductEditor({ product, onSave, onReturn, onDelete, busy }) {
   return (
     <div className="admin-expanded-panel">
       <AdminMediaPreview product={product} />
+      {product.returnInspection && (
+        <div className="admin-media-section">
+          <h3>AI Return Inspection</h3>
+          <div className="admin-return-grid">
+            <div><span>Damage</span><strong>{product.returnInspection.severity}</strong></div>
+            <div><span>Decision</span><strong>{product.returnInspection.disposition}</strong></div>
+            <div><span>Score</span><strong>{Math.round((product.returnInspection.damageScore || 0) * 100)}%</strong></div>
+          </div>
+          <p className="admin-muted">{product.returnInspection.recommendation}</p>
+          {product.returnInspection.findings?.length > 0 && (
+            <ul className="admin-return-findings">
+              {product.returnInspection.findings.map((finding, index) => <li key={index}>{finding}</li>)}
+            </ul>
+          )}
+          {product.returnInspection.disposition === 'admin_review' && (
+            <div className="admin-editor-actions">
+              <button className="btn btn-primary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'donate', adminNote: draft.adminNote })}>Donate</button>
+              <button className="btn btn-secondary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'recycle', adminNote: draft.adminNote })}>Recycle</button>
+            </div>
+          )}
+          {product.returnInspection.disposition !== 'admin_review' && product.status !== 'listed' && (
+            <div className="admin-editor-actions">
+              <button className="btn btn-primary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'refurbish', adminNote: draft.adminNote })}>Relist Refurbished</button>
+              <button className="btn btn-secondary" disabled={busy} onClick={() => onResolveReturn(product.productId, { disposition: 'recycle', adminNote: draft.adminNote })}>Recycle</button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="admin-editor">
         <div className="form-group">
           <label>Status</label>
@@ -193,7 +237,7 @@ function ProductEditor({ product, onSave, onReturn, onDelete, busy }) {
   );
 }
 
-function ProductRow({ product, expanded, onExpand, onSave, onReturn, onDelete, busy }) {
+function ProductRow({ product, expanded, onExpand, onSave, onReturn, onResolveReturn, onDelete, busy }) {
   return (
     <>
       <tr>
@@ -217,6 +261,7 @@ function ProductRow({ product, expanded, onExpand, onSave, onReturn, onDelete, b
               product={product}
               onSave={onSave}
               onReturn={onReturn}
+              onResolveReturn={onResolveReturn}
               onDelete={onDelete}
               busy={busy}
             />
@@ -236,6 +281,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [localReturns, setLocalReturns] = useState(() => readLocalReturnedPurchases());
 
   const activeParams = useMemo(() => {
     if (tab === 'returns') return {};
@@ -250,8 +296,12 @@ export default function AdminDashboard() {
         api.getAdminStats(),
         tab === 'returns' ? api.getAdminReturns() : api.getAdminProducts(activeParams),
       ]);
+      const cartReturns = tab === 'returns'
+        ? await api.getAdminCartReturns().catch(() => ({ purchases: readLocalReturnedPurchases() }))
+        : { purchases: readLocalReturnedPurchases() };
       setStats(nextStats);
       setProducts(productData.products || []);
+      setLocalReturns(cartReturns.purchases || []);
     } catch (err) {
       setMessage(err.message || 'Could not load admin dashboard.');
     } finally {
@@ -291,6 +341,39 @@ export default function AdminDashboard() {
     }
   };
 
+  const resolveReturn = async (productId, updates) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      await api.resolveAdminReturn(productId, updates);
+      setMessage(`Return resolved as ${updates.disposition}.`);
+      await load();
+    } catch (err) {
+      setMessage(err.message || 'Could not resolve return.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resolveLocalReturn = async (purchaseId, disposition) => {
+    let resolved = null;
+    try {
+      const data = await api.resolveAdminCartReturn(purchaseId, disposition);
+      resolved = data.purchase;
+    } catch {}
+
+    const next = localReturns.map(item => item.purchaseId === purchaseId
+      ? (resolved || {
+        ...item,
+        status: disposition === 'donate' ? 'donated' : 'recycled',
+        adminResolvedAt: new Date().toISOString(),
+      })
+      : item);
+    setLocalReturns(next);
+    saveLocalReturnedPurchases(next);
+    setMessage(`Add to Cart return resolved as ${disposition}.`);
+  };
+
   const deleteProduct = async (productId) => {
     if (!window.confirm('Delete this product permanently?')) return;
     setBusy(true);
@@ -318,7 +401,7 @@ export default function AdminDashboard() {
         <div className="admin-stats">
           <div className="stat-card"><div className="stat-value">{stats.totalProducts}</div><div className="stat-label">User Products</div></div>
           <div className="stat-card"><div className="stat-value">{stats.activeListed}</div><div className="stat-label">Existing Listings</div></div>
-          <div className="stat-card"><div className="stat-value">{stats.returned}</div><div className="stat-label">Returned Products</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.returned + localReturns.length}</div><div className="stat-label">Returned Products</div></div>
           <div className="stat-card"><div className="stat-value">{stats.reserved}</div><div className="stat-label">User to User</div></div>
         </div>
       )}
@@ -353,6 +436,44 @@ export default function AdminDashboard() {
       )}
 
       {message && <div className="status-message">{message}</div>}
+      {tab === 'returns' && localReturns.length > 0 && (
+        <div className="card admin-table-card" style={{ marginBottom: '1rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Add to Cart Returned Products</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Damage</th>
+                <th>AI Decision</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {localReturns.map(item => (
+                <tr key={item.purchaseId}>
+                  <td>{item.name}</td>
+                  <td>{item.productId}</td>
+                  <td><span className={`admin-status admin-status-${item.status}`}>{statusLabel(item.status)}</span></td>
+                  <td>{item.aiReturnInspection?.damagePercent ?? 0}%</td>
+                  <td>{item.aiReturnInspection?.disposition || 'N/A'}</td>
+                  <td>
+                    {item.status === 'admin_review' ? (
+                      <div className="admin-editor-actions">
+                        <button className="btn btn-primary" onClick={() => resolveLocalReturn(item.purchaseId, 'donate')}>Donate</button>
+                        <button className="btn btn-secondary" onClick={() => resolveLocalReturn(item.purchaseId, 'recycle')}>Recycle</button>
+                      </div>
+                    ) : (
+                      <span className="admin-muted">{item.aiReturnInspection?.recommendation || 'Resolved'}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {loading ? (
         <p style={{ padding: '2rem', color: 'var(--gray-500)' }}>Loading admin data...</p>
       ) : (
@@ -378,6 +499,7 @@ export default function AdminDashboard() {
                   onExpand={id => setExpandedId(expandedId === id ? '' : id)}
                   onSave={saveProduct}
                   onReturn={markReturned}
+                  onResolveReturn={resolveReturn}
                   onDelete={deleteProduct}
                   busy={busy}
                 />
